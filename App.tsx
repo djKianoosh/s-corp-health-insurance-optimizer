@@ -41,6 +41,7 @@ const App: React.FC = () => {
     },
     otherIncome: 5000,
     taxExemptInterest: 0,
+    nonTaxableSocialSecurity: 0,
     annualPremium: 15000,
     capitalLosses: 0,
     marginalTaxRate: 24,
@@ -66,6 +67,7 @@ const App: React.FC = () => {
       annualPremium, 
       otherIncome, 
       taxExemptInterest, 
+      nonTaxableSocialSecurity,
       capitalLosses, 
       marginalTaxRate, 
       estimatedSubsidy,
@@ -76,27 +78,57 @@ const App: React.FC = () => {
     } = inputs;
 
     // --- Core Financial Calcs ---
-    // Calculate Box 1 Wages (Gross - PreTax Deductions)
-    const sCorpBaseBox1 = Math.max(0, sCorpOwner.grossPay - sCorpOwner.preTax401k - sCorpOwner.hsaNonTaxable);
-    const spouseBaseBox1 = Math.max(0, spouse.grossPay - spouse.preTax401k - spouse.hsaNonTaxable);
+    
+    // S-Corp Owner: 2% Shareholders cannot take pre-tax HSA via payroll (Section 125). 
+    // It's taxable wages, then deducted on 1040. 
+    // Box 1 = Gross - 401k (HSA is NOT removed here for Owner).
+    const sCorpBox1Wages = Math.max(0, sCorpOwner.grossPay - sCorpOwner.preTax401k);
+    
+    // Spouse: Assumed non-owner employee. Can take Section 125 pre-tax HSA.
+    // Box 1 = Gross - 401k - HSA.
+    const spouseBox1Wages = Math.max(0, spouse.grossPay - spouse.preTax401k - spouse.hsaNonTaxable);
 
-    // Scenario 1: S Corp Deduction Path
-    // In this path, the premium is treated as W-2 wages, then deducted.
-    const sCorpW2Scenario1 = sCorpBaseBox1 + annualPremium; 
-    const initialAGIScenario1 = sCorpW2Scenario1 + spouseBaseBox1 + otherIncome;
-    const deductibleSEHI = Math.min(annualPremium, sCorpW2Scenario1); // SEHI limited by Medicare wages from S-Corp
+    // Common Deductions/Adjustments
+    const sCorpHsaDeduction = sCorpOwner.hsaNonTaxable; // Above-the-line deduction for owner
+    const capitalLossDeduction = Math.min(capitalLosses, 3000); // IRS Limit: Max $3k net loss against ordinary income
+
+    // --- Scenario 1: S Corp Deduction Path ---
+    // Premium added to W-2 (Box 1), then deducted (SEHI)
+    const sCorpW2Scenario1 = sCorpBox1Wages + annualPremium; 
+    
+    // AGI Calculation Scen 1
+    const initialAGIScenario1 = 
+      sCorpW2Scenario1 + 
+      spouseBox1Wages + 
+      otherIncome - 
+      sCorpHsaDeduction - 
+      capitalLossDeduction;
+
+    // SEHI Limitation: Cannot exceed Medicare wages from S-Corp
+    const deductibleSEHI = Math.min(annualPremium, sCorpW2Scenario1); 
+    
     const finalAGIScenario1 = initialAGIScenario1 - deductibleSEHI;
     const taxSavings = deductibleSEHI * (marginalTaxRate / 100);
     const netCostScen1 = annualPremium - taxSavings;
 
-    // Scenario 2: ACA Subsidies Path
-    const initialAGIScenario2 = sCorpBaseBox1 + spouseBaseBox1 + otherIncome;
+    // --- Scenario 2: ACA Subsidies Path ---
+    // Premium paid personally (after-tax). Not in W-2. Not Deducted.
     
-    // MAGI Calculation: AGI + Tax Exempt Interest
-    const baseMAGI = initialAGIScenario2 + taxExemptInterest;
+    // AGI Calculation Scen 2
+    const initialAGIScenario2 = 
+      sCorpBox1Wages + 
+      spouseBox1Wages + 
+      otherIncome - 
+      sCorpHsaDeduction - 
+      capitalLossDeduction;
+
+    // MAGI Calculation (ACA Specifics Form 8962)
+    // MAGI = AGI + Tax-Exempt Interest + Non-Taxable Social Security + Foreign Earned Income (ignored here)
+    const baseMAGI = initialAGIScenario2 + taxExemptInterest + nonTaxableSocialSecurity;
     
-    // Apply Tax-Loss Harvesting to reduce MAGI (floored at 0)
-    const finalMAGI = Math.max(0, baseMAGI - capitalLosses);
+    // Note: capitalLossDeduction was already applied to AGI above, correctly reducing MAGI.
+    // We floor at 0.
+    const finalMAGI = Math.max(0, baseMAGI);
     
     // Cliff Logic (2026) - 400% FPL
     const FPL_BASE = 15060;
@@ -133,10 +165,9 @@ const App: React.FC = () => {
       };
     };
 
-    // Scenarios based on standard SBC examples (Low, Med, High)
     const low = createUsageScenario('Low', 1000);
     const medium = createUsageScenario('Medium', 10000);
-    const high = createUsageScenario('High', 75000); // Usually caps at OOP Max
+    const high = createUsageScenario('High', 75000);
 
     return {
       scenario1: {
@@ -194,6 +225,7 @@ const App: React.FC = () => {
                   data={inputs.sCorpOwner} 
                   onChange={(d) => handlePayStubChange('sCorpOwner', d)}
                   colorClass="text-blue-600"
+                  isOwner={true}
                 />
 
                 <PayStubInput 
@@ -215,9 +247,16 @@ const App: React.FC = () => {
 
               <InputGroup 
                 label="Tax-Exempt Interest" 
-                tooltip="Municipal bonds, etc. Adds back to MAGI for ACA."
+                tooltip="Municipal bonds, etc. Adds back to MAGI."
                 value={inputs.taxExemptInterest} 
                 onChange={(v) => handleInputChange('taxExemptInterest', v)} 
+              />
+
+              <InputGroup 
+                label="Non-Taxable Social Security" 
+                tooltip="Non-taxable portion of SS benefits. Adds back to MAGI."
+                value={inputs.nonTaxableSocialSecurity} 
+                onChange={(v) => handleInputChange('nonTaxableSocialSecurity', v)} 
               />
               
               <InputGroup 
@@ -287,7 +326,7 @@ const App: React.FC = () => {
 
                 <InputGroup 
                   label="Capital Losses Available" 
-                  tooltip="Amount of harvested losses available to reduce MAGI."
+                  tooltip="Max $3,000 reduction against ordinary income."
                   value={inputs.capitalLosses} 
                   onChange={(v) => handleInputChange('capitalLosses', v)} 
                 />
@@ -420,9 +459,14 @@ const App: React.FC = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
                     <tr>
-                      <td className="px-4 py-2 font-medium text-slate-700">Gross W-2 Wages (Box 1 Base)</td>
-                      <td className="px-4 py-2 text-right">${(inputs.sCorpOwner.grossPay - inputs.sCorpOwner.preTax401k - inputs.sCorpOwner.hsaNonTaxable + inputs.spouse.grossPay - inputs.spouse.preTax401k - inputs.spouse.hsaNonTaxable).toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right">${(inputs.sCorpOwner.grossPay - inputs.sCorpOwner.preTax401k - inputs.sCorpOwner.hsaNonTaxable + inputs.spouse.grossPay - inputs.spouse.preTax401k - inputs.spouse.hsaNonTaxable).toLocaleString()}</td>
+                      <td className="px-4 py-2 font-medium text-slate-700">S-Corp Wages (Box 1)</td>
+                      <td className="px-4 py-2 text-right">${(Math.max(0, inputs.sCorpOwner.grossPay - inputs.sCorpOwner.preTax401k)).toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right">${(Math.max(0, inputs.sCorpOwner.grossPay - inputs.sCorpOwner.preTax401k)).toLocaleString()}</td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-2 font-medium text-slate-700">Spouse Wages (Box 1)</td>
+                      <td className="px-4 py-2 text-right">${(Math.max(0, inputs.spouse.grossPay - inputs.spouse.preTax401k - inputs.spouse.hsaNonTaxable)).toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right">${(Math.max(0, inputs.spouse.grossPay - inputs.spouse.preTax401k - inputs.spouse.hsaNonTaxable)).toLocaleString()}</td>
                     </tr>
                     <tr>
                       <td className="px-4 py-2 font-medium text-slate-700">Add: Premium to Wages</td>
@@ -430,9 +474,19 @@ const App: React.FC = () => {
                       <td className="px-4 py-2 text-right text-slate-300">$0</td>
                     </tr>
                     <tr>
-                      <td className="px-4 py-2 font-medium text-slate-700">Deduct: SEHI / Capital Loss</td>
+                      <td className="px-4 py-2 font-medium text-slate-700">Deduct: SEHI</td>
                       <td className="px-4 py-2 text-right text-red-500">(${results.scenario1.deductibleSEHI.toLocaleString()})</td>
-                      <td className="px-4 py-2 text-right text-red-500">(${inputs.capitalLosses.toLocaleString()})</td>
+                      <td className="px-4 py-2 text-right text-slate-300">$0</td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-2 font-medium text-slate-700">Deduct: Owner HSA (Form 8889)</td>
+                      <td className="px-4 py-2 text-right text-red-500">(${inputs.sCorpOwner.hsaNonTaxable.toLocaleString()})</td>
+                      <td className="px-4 py-2 text-right text-red-500">(${inputs.sCorpOwner.hsaNonTaxable.toLocaleString()})</td>
+                    </tr>
+                     <tr>
+                      <td className="px-4 py-2 font-medium text-slate-700">Deduct: Capital Loss (Max $3k)</td>
+                      <td className="px-4 py-2 text-right text-red-500">(${Math.min(inputs.capitalLosses, 3000).toLocaleString()})</td>
+                      <td className="px-4 py-2 text-right text-red-500">(${Math.min(inputs.capitalLosses, 3000).toLocaleString()})</td>
                     </tr>
                     <tr className="bg-slate-50">
                       <td className="px-4 py-2 font-bold text-slate-800">Final Adjusted Income</td>

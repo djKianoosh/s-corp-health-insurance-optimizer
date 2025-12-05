@@ -7,6 +7,7 @@ interface PayStubInputProps {
   data: PayStubData;
   onChange: (data: PayStubData) => void;
   colorClass?: string;
+  isOwner?: boolean;
 }
 
 interface InputFieldProps {
@@ -56,7 +57,8 @@ export const PayStubInput: React.FC<PayStubInputProps> = ({
   title, 
   data, 
   onChange,
-  colorClass = "text-slate-800"
+  colorClass = "text-slate-800",
+  isOwner = false
 }) => {
   const handleChange = (field: keyof PayStubData, value: number) => {
     onChange({ ...data, [field]: value });
@@ -96,7 +98,7 @@ export const PayStubInput: React.FC<PayStubInputProps> = ({
         <InputField label="Medicare" value={data.medicare} onChange={(v) => handleChange('medicare', v)} />
         
         <div className="col-span-2 pt-2 border-t border-slate-200 mt-1">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">Pre-Tax Deductions (MAGI Impact)</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">Pre-Tax / Above-Line Deductions</p>
           <div className="grid grid-cols-2 gap-4">
             <InputField 
               label="401(k)" 
@@ -105,10 +107,13 @@ export const PayStubInput: React.FC<PayStubInputProps> = ({
               tooltip="Traditional Pre-tax 401k contributions" 
             />
             <InputField 
-              label="HSA (Non-Taxable)" 
+              label="HSA (Contributions)" 
               value={data.hsaNonTaxable} 
               onChange={(v) => handleChange('hsaNonTaxable', v)} 
-              tooltip="Payroll deducted HSA contributions" 
+              tooltip={isOwner 
+                ? "S-Corp Owner: Treated as Above-the-line deduction on Form 1040 (Not Section 125 pre-tax payroll)." 
+                : "Employee: Pre-tax Section 125 payroll deduction."
+              } 
             />
           </div>
         </div>

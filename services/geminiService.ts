@@ -15,12 +15,8 @@ export const getAIAnalysis = async (inputs: FinancialInputs, results: ScenarioRe
   if (results.scenario2.hitCliff && results.scenario2.fplPercentage > 400) {
     const magi = results.scenario2.magi;
     const fplPercent = results.scenario2.fplPercentage;
-    // targetMagi corresponds to 400% FPL
-    // currentMagi corresponds to fplPercent
-    // targetMagi = currentMagi * (400 / fplPercent)
     const targetMagi = magi * (400 / fplPercent);
     const gap = magi - targetMagi;
-    // Add a $100 buffer for safety in recommendation
     const safeGap = Math.ceil(gap + 100);
     cliffGapString = `$${safeGap.toLocaleString()}`;
   }
@@ -37,7 +33,8 @@ export const getAIAnalysis = async (inputs: FinancialInputs, results: ScenarioRe
     - Health Insurance Premium: $${inputs.annualPremium.toLocaleString()}
     - Plan Deductible: $${inputs.planDeductible.toLocaleString()} | OOP Max: $${inputs.planOOPMax.toLocaleString()}
     - Marginal Tax Bracket: ${inputs.marginalTaxRate}%
-    - Available Capital Losses (Harvesting): $${inputs.capitalLosses.toLocaleString()}
+    - Available Capital Losses (Harvesting): $${inputs.capitalLosses.toLocaleString()} (Used max $3k against ordinary income)
+    - Tax-Exempt Interest + Non-Taxable SS (Add-backs): $${(inputs.taxExemptInterest + inputs.nonTaxableSocialSecurity).toLocaleString()}
     - Estimated ACA Subsidy (User Input if eligible): $${inputs.estimatedSubsidy.toLocaleString()}
 
     **Calculated Results:**

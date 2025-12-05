@@ -13,6 +13,7 @@ export interface FinancialInputs {
   spouse: PayStubData;
   otherIncome: number;
   taxExemptInterest: number;
+  nonTaxableSocialSecurity: number; // Added for accurate MAGI
   annualPremium: number;
   capitalLosses: number;
   marginalTaxRate: number; // as a percentage, e.g., 24
