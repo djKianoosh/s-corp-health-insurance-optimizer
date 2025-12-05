@@ -1,5 +1,7 @@
 # S-Corp Health Insurance Optimizer
 
+[Open the app in Google's AI Studio](https://ai.studio/apps/drive/1GUvJk6OuKa4WVh51Vx9k5SQfaF8lEcTg?fullscreenApplet=true)
+
 ![App Screenshot](./s-corp-health-insurance-optimizer-screenshot.png)
 
 ## Purpose
