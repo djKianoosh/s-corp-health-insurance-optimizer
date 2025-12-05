@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Calculator, ArrowRight, DollarSign, TrendingDown, Info, AlertTriangle, Shield } from 'lucide-react';
+import { Calculator, ArrowRight, DollarSign, TrendingDown, Info, AlertTriangle, Shield, HelpCircle } from 'lucide-react';
 import { FinancialInputs, ScenarioResult, PayStubData, UsageScenarioCost } from './types';
 import { InputGroup } from './components/InputGroup';
 import { PayStubInput } from './components/PayStubInput';
 import { ComparisonChart } from './components/ComparisonChart';
 import { AIAdvisor } from './components/AIAdvisor';
 import { UsageScenarioTable } from './components/UsageScenarioTable';
+import { AboutPanel } from './components/AboutPanel';
 
 const initialPayStub: PayStubData = {
   grossPay: 0,
@@ -18,6 +19,7 @@ const initialPayStub: PayStubData = {
 };
 
 const App: React.FC = () => {
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [inputs, setInputs] = useState<FinancialInputs>({
     sCorpOwner: { 
       ...initialPayStub, 
@@ -197,7 +199,15 @@ const App: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
-        <header className="mb-10 text-center">
+        <header className="mb-10 text-center relative">
+          <button 
+            onClick={() => setIsAboutOpen(true)}
+            className="absolute right-0 top-0 p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-full transition-all"
+            title="About this tool"
+          >
+            <HelpCircle className="w-6 h-6" />
+          </button>
+
           <div className="inline-flex items-center justify-center p-3 bg-blue-600 rounded-full shadow-lg mb-4">
             <Calculator className="w-8 h-8 text-white" />
           </div>
@@ -208,6 +218,8 @@ const App: React.FC = () => {
             Compare the <span className="font-semibold text-blue-600">SEHI Deduction</span> vs. <span className="font-semibold text-purple-600">ACA Subsidy (2026 Rules)</span> including Plan Deductibles.
           </p>
         </header>
+
+        <AboutPanel isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           

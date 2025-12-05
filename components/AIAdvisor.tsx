@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Bot, RefreshCw, AlertCircle } from 'lucide-react';
-import { FinancialInputs, ScenarioResult } from '../types';
+import { Bot, RefreshCw, AlertCircle, ExternalLink } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { FinancialInputs, ScenarioResult, AIAnalysisResult } from '../types';
 import { getAIAnalysis } from '../services/geminiService';
 
 interface AIAdvisorProps {
@@ -9,13 +10,13 @@ interface AIAdvisorProps {
 }
 
 export const AIAdvisor: React.FC<AIAdvisorProps> = ({ inputs, results }) => {
-  const [analysis, setAnalysis] = useState<string | null>(null);
+  const [result, setResult] = useState<AIAnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleAnalyze = async () => {
     setLoading(true);
-    const text = await getAIAnalysis(inputs, results);
-    setAnalysis(text);
+    const data = await getAIAnalysis(inputs, results);
+    setResult(data);
     setLoading(false);
   };
 
@@ -28,7 +29,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ inputs, results }) => {
           </div>
           <div>
             <h3 className="font-bold text-indigo-900">AI Financial Advisor</h3>
-            <p className="text-xs text-indigo-600">Powered by Gemini 2.5</p>
+            <p className="text-xs text-indigo-600">Powered by Gemini 2.5 with Google Search</p>
           </div>
         </div>
         <button
@@ -41,11 +42,11 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ inputs, results }) => {
           ) : (
             <RefreshCw className="w-4 h-4" />
           )}
-          {analysis ? 'Re-Analyze' : 'Analyze Scenario'}
+          {result ? 'Re-Analyze' : 'Analyze Scenario'}
         </button>
       </div>
 
-      {!analysis && !loading && (
+      {!result && !loading && (
         <div className="text-sm text-indigo-800/70 p-4 bg-indigo-100/50 rounded-lg border border-indigo-200/50">
           Click "Analyze Scenario" to get a qualitative assessment of these two paths, covering tax nuances, risks, and hidden opportunities.
         </div>
@@ -59,15 +60,33 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ inputs, results }) => {
         </div>
       )}
 
-      {analysis && !loading && (
-        <div className="prose prose-indigo prose-sm max-w-none text-slate-700">
-           {/* Simple whitespace handling for markdown-like output */}
-           {analysis.split('\n').map((line, i) => (
-             <p key={i} className={`mb-2 ${line.startsWith('**') ? 'font-bold text-indigo-900 mt-4' : ''}`}>
-               {line.replace(/\*\*/g, '')}
-             </p>
-           ))}
-        </div>
+      {result && !loading && (
+        <>
+          <div className="prose prose-indigo prose-sm max-w-none text-slate-700 mb-6">
+             <ReactMarkdown>{result.analysis}</ReactMarkdown>
+          </div>
+
+          {result.sources.length > 0 && (
+            <div className="border-t border-indigo-200 pt-3 mt-4">
+              <h4 className="text-xs font-semibold text-indigo-900 mb-2 uppercase tracking-wide">Sources</h4>
+              <ul className="space-y-1">
+                {result.sources.map((source, index) => (
+                  <li key={index}>
+                    <a 
+                      href={source.uri} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 truncate"
+                    >
+                      <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                      {source.title}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       )}
       
       <div className="mt-4 flex items-start gap-2 text-xs text-slate-500 bg-white p-3 rounded border border-slate-100">

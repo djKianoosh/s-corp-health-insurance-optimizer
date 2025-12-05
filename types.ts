@@ -58,3 +58,11 @@ export interface ScenarioResult {
   winner: 'Scenario 1' | 'Scenario 2' | 'Equal';
   savings: number;
 }
+
+export interface AIAnalysisResult {
+  analysis: string;
+  sources: Array<{
+    title: string;
+    uri: string;
+  }>;
+}
