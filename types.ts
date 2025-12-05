@@ -12,12 +12,24 @@ export interface FinancialInputs {
   sCorpOwner: PayStubData;
   spouse: PayStubData;
   otherIncome: number;
-  taxExemptInterest: number; // Added for accurate MAGI
+  taxExemptInterest: number;
   annualPremium: number;
   capitalLosses: number;
   marginalTaxRate: number; // as a percentage, e.g., 24
   estimatedSubsidy: number; // PTC
   householdSize: number;
+  // Plan Design Inputs
+  planDeductible: number;
+  planOOPMax: number;
+  planCoinsurance: number; // User pays % (e.g., 20)
+}
+
+export interface UsageScenarioCost {
+  label: string;
+  billedAmount: number;
+  oopCost: number;
+  totalCostScen1: number;
+  totalCostScen2: number;
 }
 
 export interface ScenarioResult {
@@ -36,6 +48,11 @@ export interface ScenarioResult {
     netCost: number;
     hitCliff: boolean;
     fplPercentage: number;
+  };
+  usageScenarios: {
+    low: UsageScenarioCost;
+    medium: UsageScenarioCost;
+    high: UsageScenarioCost;
   };
   winner: 'Scenario 1' | 'Scenario 2' | 'Equal';
   savings: number;

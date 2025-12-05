@@ -34,7 +34,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ results }) => 
 
   return (
     <div className="h-80 w-full bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-      <h3 className="text-lg font-semibold text-slate-800 mb-4">Cost Structure Comparison</h3>
+      <h3 className="text-lg font-semibold text-slate-800 mb-4">Net Premium Cost Comparison</h3>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
@@ -53,7 +53,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ results }) => 
             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
           />
           <Legend />
-          <Bar dataKey="netCost" name="Net Out-of-Pocket Cost" stackId="a" fill="#3b82f6">
+          <Bar dataKey="netCost" name="Net Premium Cost" stackId="a" fill="#3b82f6">
              {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.netCost === Math.min(results.scenario1.netCost, results.scenario2.netCost) ? '#22c55e' : '#3b82f6'} />
               ))}
@@ -63,7 +63,7 @@ export const ComparisonChart: React.FC<ComparisonChartProps> = ({ results }) => 
         </BarChart>
       </ResponsiveContainer>
       <p className="text-xs text-center text-slate-500 mt-2">
-        *Green bar indicates the lower net cost option.
+        *Green bar indicates the lower net premium cost option.
       </p>
     </div>
   );

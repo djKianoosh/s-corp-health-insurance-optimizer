@@ -21,35 +21,33 @@ export const getAIAnalysis = async (inputs: FinancialInputs, results: ScenarioRe
     **Detailed Financial Inputs:**
     - Household Size: ${inputs.householdSize}
     - S-Corp Owner Gross Pay: $${inputs.sCorpOwner.grossPay.toLocaleString()}
-      - Pre-tax 401k: $${inputs.sCorpOwner.preTax401k.toLocaleString()}
-      - HSA: $${inputs.sCorpOwner.hsaNonTaxable.toLocaleString()}
-      - Net Taxable Base (Box 1): $${sCorpNetTaxable.toLocaleString()}
     - Spouse Gross Pay: $${inputs.spouse.grossPay.toLocaleString()}
-      - Net Taxable Base (Box 1): $${spouseNetTaxable.toLocaleString()}
-    - Other Income: $${inputs.otherIncome.toLocaleString()}
     - Health Insurance Premium: $${inputs.annualPremium.toLocaleString()}
+    - Plan Deductible: $${inputs.planDeductible.toLocaleString()} | OOP Max: $${inputs.planOOPMax.toLocaleString()}
     - Marginal Tax Bracket: ${inputs.marginalTaxRate}%
     - Available Capital Losses (Harvesting): $${inputs.capitalLosses.toLocaleString()}
     - Estimated ACA Subsidy (User Input): $${inputs.estimatedSubsidy.toLocaleString()}
 
     **Calculated Results:**
-    - Scenario 1 (S-Corp Deduction Path) Net Cost: $${results.scenario1.netCost.toLocaleString()}
+    - Scenario 1 (S-Corp Deduction Path) Net Premium Cost: $${results.scenario1.netCost.toLocaleString()}
       - Tax Savings (via SEHI): $${results.scenario1.taxSavings.toLocaleString()}
     
-    - Scenario 2 (ACA Subsidies Path) Net Cost: $${results.scenario2.netCost.toLocaleString()}
+    - Scenario 2 (ACA Subsidies Path) Net Premium Cost: $${results.scenario2.netCost.toLocaleString()}
       - Adjusted MAGI for ACA: $${results.scenario2.magi.toLocaleString()}
       - FPL Percentage: ${results.scenario2.fplPercentage.toFixed(1)}%
       - Hit 400% Cliff: ${results.scenario2.hitCliff ? 'YES (Subsidy reduced to $0)' : 'NO'}
-      - Actual Subsidy Applied: $${results.scenario2.subsidy.toLocaleString()}
 
-    **Winner:** ${results.winner} saves approximately $${results.savings.toLocaleString()} per year.
+    **Total Liability Scenarios (Premium + Est. Medical OOP):**
+    - High Usage (Catastrophic): Scen 1 Total = $${results.usageScenarios.high.totalCostScen1.toLocaleString()} vs Scen 2 Total = $${results.usageScenarios.high.totalCostScen2.toLocaleString()}
+    
+    **Winner:** ${results.winner} saves approximately $${results.savings.toLocaleString()} per year on premiums.
 
     **Task:**
     Provide a concise (max 200 words) strategic analysis. 
-    1. Confirm the winning strategy.
-    2. Discuss the impact of the pre-tax deductions (401k/HSA) on the MAGI for Scenario 2.
-    3. If the "Cliff" was hit (MAGI > 400% FPL), explain that this assumes the 2026 expiration of enhanced subsidies and suggest how much additional loss harvesting or 401k contribution is needed to get back under the cliff.
-    4. Suggest a recommendation.
+    1. Confirm the winning strategy based on Net Premium Cost.
+    2. Discuss risk: Does the premium savings in the winning scenario justify the plan's deductible/OOP exposure?
+    3. Discuss the impact of pre-tax deductions (401k/HSA) on the ACA MAGI.
+    4. If the "Cliff" was hit, suggest specific actions (e.g., $X more in 401k contributions) to qualify.
   `;
 
   try {

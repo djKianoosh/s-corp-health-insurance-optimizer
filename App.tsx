@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Calculator, ArrowRight, DollarSign, TrendingDown, Info, AlertTriangle, Users } from 'lucide-react';
-import { FinancialInputs, ScenarioResult, PayStubData } from './types';
+import { Calculator, ArrowRight, DollarSign, TrendingDown, Info, AlertTriangle, Shield } from 'lucide-react';
+import { FinancialInputs, ScenarioResult, PayStubData, UsageScenarioCost } from './types';
 import { InputGroup } from './components/InputGroup';
 import { PayStubInput } from './components/PayStubInput';
 import { ComparisonChart } from './components/ComparisonChart';
 import { AIAdvisor } from './components/AIAdvisor';
+import { UsageScenarioTable } from './components/UsageScenarioTable';
 
 const initialPayStub: PayStubData = {
   grossPay: 0,
@@ -17,9 +18,8 @@ const initialPayStub: PayStubData = {
 };
 
 const App: React.FC = () => {
-  // State for user inputs
   const [inputs, setInputs] = useState<FinancialInputs>({
-    sCorpOwner: { ...initialPayStub, grossPay: 80000, preTax401k: 5000 },
+    sCorpOwner: { ...initialPayStub, grossPay: 80000, preTax401k: 5000, hsaNonTaxable: 3000 },
     spouse: { ...initialPayStub, grossPay: 45000 },
     otherIncome: 5000,
     taxExemptInterest: 0,
@@ -27,7 +27,10 @@ const App: React.FC = () => {
     capitalLosses: 0,
     marginalTaxRate: 24,
     estimatedSubsidy: 8000,
-    householdSize: 4
+    householdSize: 3,
+    planDeductible: 14200,
+    planOOPMax: 14200,
+    planCoinsurance: 0
   });
 
   const handleInputChange = (field: keyof FinancialInputs, value: number) => {
@@ -38,7 +41,6 @@ const App: React.FC = () => {
     setInputs(prev => ({ ...prev, [role]: data }));
   };
 
-  // Calculation Logic
   const results: ScenarioResult = useMemo(() => {
     const { 
       sCorpOwner, 
@@ -49,58 +51,67 @@ const App: React.FC = () => {
       capitalLosses, 
       marginalTaxRate, 
       estimatedSubsidy,
-      householdSize
+      householdSize,
+      planDeductible,
+      planOOPMax,
+      planCoinsurance
     } = inputs;
 
-    // Calculate Box 1 Wages Base (Gross - PreTax Deductions)
-    // Note: Health Insurance is handled separately below for S-Corp
+    // --- Core Financial Calcs ---
     const sCorpBaseBox1 = Math.max(0, sCorpOwner.grossPay - sCorpOwner.preTax401k - sCorpOwner.hsaNonTaxable);
     const spouseBaseBox1 = Math.max(0, spouse.grossPay - spouse.preTax401k - spouse.hsaNonTaxable);
 
-    // --- Scenario 1: S Corp Deduction ---
-    // For S-Corp owner, the premium is added to wages (Box 1) then deducted (SEHI).
+    // Scenario 1: S Corp
     const sCorpW2Scenario1 = sCorpBaseBox1 + annualPremium; 
-    
-    const initialAGIScenario1 = sCorpW2Scenario1 + spouseBaseBox1 + otherIncome; // Note: taxExemptInterest is NOT in AGI
-    
-    // SEHI Deduction
-    const deductibleSEHI = Math.min(annualPremium, sCorpW2Scenario1); // Simplified limit check
-    
+    const initialAGIScenario1 = sCorpW2Scenario1 + spouseBaseBox1 + otherIncome;
+    const deductibleSEHI = Math.min(annualPremium, sCorpW2Scenario1);
     const finalAGIScenario1 = initialAGIScenario1 - deductibleSEHI;
     const taxSavings = deductibleSEHI * (marginalTaxRate / 100);
     const netCostScen1 = annualPremium - taxSavings;
 
-    // --- Scenario 2: ACA Subsidies ---
-    // Premium paid personally, so it is NOT added to Box 1 wages. 
-    // Assumes S-Corp Salary stays at Gross Pay (Base Box 1).
+    // Scenario 2: ACA
     const initialAGIScenario2 = sCorpBaseBox1 + spouseBaseBox1 + otherIncome;
-    
-    // MAGI Calculation for ACA
-    // MAGI = AGI + Tax Exempt Interest + Non-Taxable SS (assuming 0 here) + Foreign Income (0)
-    // Then apply Capital Losses logic
     const baseMAGI = initialAGIScenario2 + taxExemptInterest;
-    
     const finalMAGI = Math.max(0, baseMAGI - capitalLosses);
     
-    // --- ACA 2026 Cliff Logic ---
-    // Using 2024 Poverty Guidelines as baseline for FPL
-    // $15,060 for first person + $5,380 for each additional person
+    // Cliff Logic (2026)
     const FPL_BASE = 15060;
     const FPL_PER_PERSON = 5380;
     const povertyLevel = FPL_BASE + (FPL_PER_PERSON * Math.max(0, householdSize - 1));
-    
     const fplPercentage = povertyLevel > 0 ? (finalMAGI / povertyLevel) * 100 : 0;
     const hitCliff = fplPercentage > 400;
-
-    // If they hit the cliff, subsidy is eliminated (2026 rules)
     const subsidy = hitCliff ? 0 : estimatedSubsidy;
     const netCostScen2 = Math.max(0, annualPremium - subsidy);
 
-    // --- Comparison ---
+    // Winner Logic
     const diff = netCostScen1 - netCostScen2;
     let winner: 'Scenario 1' | 'Scenario 2' | 'Equal' = 'Equal';
     if (diff > 0) winner = 'Scenario 2';
     if (diff < 0) winner = 'Scenario 1';
+
+    // --- Medical Usage Logic ---
+    const calculateOOP = (billedAmount: number) => {
+      if (billedAmount <= planDeductible) return billedAmount;
+      const remaining = billedAmount - planDeductible;
+      const coinsuranceAmt = remaining * (planCoinsurance / 100);
+      return Math.min(planOOPMax, planDeductible + coinsuranceAmt);
+    };
+
+    const createUsageScenario = (label: string, billed: number): UsageScenarioCost => {
+      const oop = calculateOOP(billed);
+      return {
+        label,
+        billedAmount: billed,
+        oopCost: oop,
+        totalCostScen1: netCostScen1 + oop,
+        totalCostScen2: netCostScen2 + oop
+      };
+    };
+
+    // Scenarios based on standard SBC examples (Low, Med, High)
+    const low = createUsageScenario('Low', 1000);
+    const medium = createUsageScenario('Medium', 10000);
+    const high = createUsageScenario('High', 75000); // Usually caps at OOP Max
 
     return {
       scenario1: {
@@ -119,6 +130,7 @@ const App: React.FC = () => {
         hitCliff,
         fplPercentage
       },
+      usageScenarios: { low, medium, high },
       winner,
       savings: Math.abs(diff)
     };
@@ -137,7 +149,7 @@ const App: React.FC = () => {
             S-Corp Health Insurance Optimizer
           </h1>
           <p className="mt-2 text-lg text-slate-600 max-w-2xl mx-auto">
-            Compare the <span className="font-semibold text-blue-600">SEHI Deduction</span> vs. <span className="font-semibold text-purple-600">ACA Subsidy (2026 Rules)</span>.
+            Compare the <span className="font-semibold text-blue-600">SEHI Deduction</span> vs. <span className="font-semibold text-purple-600">ACA Subsidy (2026 Rules)</span> including Plan Deductibles.
           </p>
         </header>
 
@@ -182,16 +194,7 @@ const App: React.FC = () => {
                 value={inputs.taxExemptInterest} 
                 onChange={(v) => handleInputChange('taxExemptInterest', v)} 
               />
-
-              <div className="my-6 border-t border-slate-100"></div>
-
-              <InputGroup 
-                label="Annual Health Premium" 
-                tooltip="Total full cost of the insurance plan before any subsidies or tax savings."
-                value={inputs.annualPremium} 
-                onChange={(v) => handleInputChange('annualPremium', v)} 
-              />
-
+              
               <InputGroup 
                 label="Marginal Tax Rate" 
                 prefix="" 
@@ -201,6 +204,44 @@ const App: React.FC = () => {
                 value={inputs.marginalTaxRate} 
                 onChange={(v) => handleInputChange('marginalTaxRate', v)} 
               />
+
+              <div className="my-6 border-t border-slate-100"></div>
+
+              <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 mt-6">
+                 <h3 className="text-sm font-semibold text-indigo-900 mb-3 flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  Health Plan Details
+                </h3>
+                <InputGroup 
+                  label="Annual Health Premium" 
+                  tooltip="Total full cost of the insurance plan before any subsidies."
+                  value={inputs.annualPremium} 
+                  onChange={(v) => handleInputChange('annualPremium', v)} 
+                />
+                <div className="grid grid-cols-2 gap-4">
+                   <InputGroup 
+                    label="Plan Deductible" 
+                    tooltip="Amount you pay before coinsurance kicks in."
+                    value={inputs.planDeductible} 
+                    onChange={(v) => handleInputChange('planDeductible', v)} 
+                  />
+                  <InputGroup 
+                    label="OOP Max" 
+                    tooltip="Maximum out-of-pocket expenses per year."
+                    value={inputs.planOOPMax} 
+                    onChange={(v) => handleInputChange('planOOPMax', v)} 
+                  />
+                </div>
+                <InputGroup 
+                    label="Coinsurance (Your Share)" 
+                    tooltip="Percentage you pay after deductible (e.g. 20%)"
+                    value={inputs.planCoinsurance} 
+                    onChange={(v) => handleInputChange('planCoinsurance', v)} 
+                    prefix=""
+                    suffix="%"
+                    step={5}
+                />
+              </div>
 
               <div className="bg-purple-50 p-4 rounded-lg border border-purple-100 mt-6">
                 <h3 className="text-sm font-semibold text-purple-900 mb-3 flex items-center gap-2">
@@ -267,14 +308,9 @@ const App: React.FC = () => {
                     <span>- ${results.scenario1.taxSavings.toLocaleString()}</span>
                   </div>
                   <div className="pt-3 mt-3 border-t border-slate-200 flex justify-between items-center">
-                    <span className="font-semibold text-slate-700">Net Annual Cost</span>
+                    <span className="font-semibold text-slate-700">Net Premium Cost</span>
                     <span className="text-2xl font-bold text-slate-900">${results.scenario1.netCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                   </div>
-                </div>
-                
-                <div className="mt-4 pt-4 border-t border-slate-200/50 text-xs text-slate-500">
-                  <p>Income Tax Deduction: <span className="font-mono">${results.scenario1.deductibleSEHI.toLocaleString()}</span></p>
-                  <p>Effect: Lowers Taxable Income</p>
                 </div>
               </div>
 
@@ -310,28 +346,8 @@ const App: React.FC = () => {
                   )}
 
                   <div className="pt-3 mt-3 border-t border-slate-200 flex justify-between items-center">
-                    <span className="font-semibold text-slate-700">Net Annual Cost</span>
+                    <span className="font-semibold text-slate-700">Net Premium Cost</span>
                     <span className="text-2xl font-bold text-slate-900">${results.scenario2.netCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-slate-200/50 text-xs text-slate-500">
-                  <div className="flex justify-between items-center">
-                    <span>Est. MAGI: <span className="font-mono">${results.scenario2.magi.toLocaleString()}</span></span>
-                    <span className={`font-bold ${results.scenario2.hitCliff ? 'text-red-600' : 'text-green-600'}`}>
-                      {results.scenario2.fplPercentage.toFixed(0)}% FPL
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2">
-                    <div 
-                      className={`h-1.5 rounded-full ${results.scenario2.hitCliff ? 'bg-red-500' : 'bg-green-500'}`} 
-                      style={{ width: `${Math.min(results.scenario2.fplPercentage / 5, 100)}%` }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-                    <span>0%</span>
-                    <span>400% (Cliff)</span>
-                    <span>500%</span>
                   </div>
                 </div>
               </div>
@@ -349,7 +365,7 @@ const App: React.FC = () => {
                     }
                   </h4>
                   <p className="text-slate-300 text-sm">
-                    Potential annual savings: <span className="text-green-400 font-bold">${results.savings.toLocaleString()}</span>
+                    Potential premium savings: <span className="text-green-400 font-bold">${results.savings.toLocaleString()}</span>
                   </p>
                 </div>
               </div>
@@ -358,11 +374,14 @@ const App: React.FC = () => {
 
             {/* Chart */}
             <ComparisonChart results={results} />
+            
+            {/* New Usage Scenario Table */}
+            <UsageScenarioTable results={results} />
 
             {/* Detailed Breakdown Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mt-6">
               <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                <h3 className="font-semibold text-slate-800">Calculation Details</h3>
+                <h3 className="font-semibold text-slate-800">Tax Calculation Details</h3>
                 <Info className="w-4 h-4 text-slate-400" />
               </div>
               <div className="overflow-x-auto">
@@ -395,16 +414,8 @@ const App: React.FC = () => {
                       <td className="px-4 py-2 text-right font-bold">${results.scenario1.finalAGI.toLocaleString()} <span className="text-xs text-slate-400 font-normal">(AGI)</span></td>
                       <td className="px-4 py-2 text-right font-bold">${results.scenario2.magi.toLocaleString()} <span className="text-xs text-slate-400 font-normal">(MAGI)</span></td>
                     </tr>
-                    <tr>
-                      <td className="px-4 py-2 font-medium text-slate-700">Tax Savings / Subsidy</td>
-                      <td className="px-4 py-2 text-right text-emerald-600">(${results.scenario1.taxSavings.toLocaleString()})</td>
-                      <td className={`px-4 py-2 text-right ${results.scenario2.hitCliff ? 'text-red-500 font-bold' : 'text-purple-600'}`}>
-                        (${results.scenario2.subsidy.toLocaleString()})
-                        {results.scenario2.hitCliff && <span className="block text-[10px] font-normal">Hit Cliff ({results.scenario2.fplPercentage.toFixed(0)}% FPL)</span>}
-                      </td>
-                    </tr>
                     <tr className="bg-slate-100">
-                      <td className="px-4 py-3 font-black text-slate-900">Net Annual Cost</td>
+                      <td className="px-4 py-3 font-black text-slate-900">Net Annual Premium Cost</td>
                       <td className="px-4 py-3 text-right font-black text-slate-900">${results.scenario1.netCost.toLocaleString()}</td>
                       <td className="px-4 py-3 text-right font-black text-slate-900">${results.scenario2.netCost.toLocaleString()}</td>
                     </tr>
