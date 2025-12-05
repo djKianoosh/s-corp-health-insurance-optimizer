@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Calculator, ArrowRight, DollarSign, TrendingDown, Info, User, Users } from 'lucide-react';
+import { Calculator, ArrowRight, DollarSign, TrendingDown, Info, AlertTriangle, Users } from 'lucide-react';
 import { FinancialInputs, ScenarioResult, PayStubData } from './types';
 import { InputGroup } from './components/InputGroup';
 import { PayStubInput } from './components/PayStubInput';
@@ -26,7 +26,8 @@ const App: React.FC = () => {
     annualPremium: 12000,
     capitalLosses: 0,
     marginalTaxRate: 24,
-    estimatedSubsidy: 0
+    estimatedSubsidy: 8000,
+    householdSize: 4
   });
 
   const handleInputChange = (field: keyof FinancialInputs, value: number) => {
@@ -39,7 +40,17 @@ const App: React.FC = () => {
 
   // Calculation Logic
   const results: ScenarioResult = useMemo(() => {
-    const { sCorpOwner, spouse, annualPremium, otherIncome, taxExemptInterest, capitalLosses, marginalTaxRate, estimatedSubsidy } = inputs;
+    const { 
+      sCorpOwner, 
+      spouse, 
+      annualPremium, 
+      otherIncome, 
+      taxExemptInterest, 
+      capitalLosses, 
+      marginalTaxRate, 
+      estimatedSubsidy,
+      householdSize
+    } = inputs;
 
     // Calculate Box 1 Wages Base (Gross - PreTax Deductions)
     // Note: Health Insurance is handled separately below for S-Corp
@@ -71,7 +82,18 @@ const App: React.FC = () => {
     
     const finalMAGI = Math.max(0, baseMAGI - capitalLosses);
     
-    const subsidy = estimatedSubsidy;
+    // --- ACA 2026 Cliff Logic ---
+    // Using 2024 Poverty Guidelines as baseline for FPL
+    // $15,060 for first person + $5,380 for each additional person
+    const FPL_BASE = 15060;
+    const FPL_PER_PERSON = 5380;
+    const povertyLevel = FPL_BASE + (FPL_PER_PERSON * Math.max(0, householdSize - 1));
+    
+    const fplPercentage = povertyLevel > 0 ? (finalMAGI / povertyLevel) * 100 : 0;
+    const hitCliff = fplPercentage > 400;
+
+    // If they hit the cliff, subsidy is eliminated (2026 rules)
+    const subsidy = hitCliff ? 0 : estimatedSubsidy;
     const netCostScen2 = Math.max(0, annualPremium - subsidy);
 
     // --- Comparison ---
@@ -93,7 +115,9 @@ const App: React.FC = () => {
         initialAGI: initialAGIScenario2,
         magi: finalMAGI,
         subsidy,
-        netCost: netCostScen2
+        netCost: netCostScen2,
+        hitCliff,
+        fplPercentage
       },
       winner,
       savings: Math.abs(diff)
@@ -113,7 +137,7 @@ const App: React.FC = () => {
             S-Corp Health Insurance Optimizer
           </h1>
           <p className="mt-2 text-lg text-slate-600 max-w-2xl mx-auto">
-            Compare the <span className="font-semibold text-blue-600">SEHI Deduction</span> vs. <span className="font-semibold text-purple-600">ACA Subsidy Optimization</span> strategies.
+            Compare the <span className="font-semibold text-blue-600">SEHI Deduction</span> vs. <span className="font-semibold text-purple-600">ACA Subsidy (2026 Rules)</span>.
           </p>
         </header>
 
@@ -183,18 +207,39 @@ const App: React.FC = () => {
                   <TrendingDown className="w-4 h-4" />
                   ACA Optimization Inputs
                 </h3>
+                
+                <div className="mb-4">
+                  <InputGroup 
+                    label="Household Size" 
+                    tooltip="Number of people on the tax return. Used to calculate FPL %."
+                    value={inputs.householdSize} 
+                    onChange={(v) => handleInputChange('householdSize', v)} 
+                    prefix=""
+                    step={1}
+                  />
+                </div>
+
                 <InputGroup 
                   label="Capital Losses Available" 
                   tooltip="Amount of harvested losses available to reduce MAGI."
                   value={inputs.capitalLosses} 
                   onChange={(v) => handleInputChange('capitalLosses', v)} 
                 />
-                <InputGroup 
-                  label="Estimated ACA Subsidy (PTC)" 
-                  tooltip="Use an exchange calculator (e.g. Healthcare.gov) to estimate your subsidy based on your MAGI."
-                  value={inputs.estimatedSubsidy} 
-                  onChange={(v) => handleInputChange('estimatedSubsidy', v)} 
-                />
+                
+                <div className="relative">
+                  <InputGroup 
+                    label="Estimated ACA Subsidy (PTC)" 
+                    tooltip="Est. annual subsidy if eligible. Will be set to $0 if MAGI > 400% FPL."
+                    value={inputs.estimatedSubsidy} 
+                    onChange={(v) => handleInputChange('estimatedSubsidy', v)} 
+                  />
+                  {results.scenario2.hitCliff && (
+                    <div className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span>Subsidy removed (MAGI &gt; 400% FPL)</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -234,7 +279,14 @@ const App: React.FC = () => {
               </div>
 
               {/* Scenario 2 Card */}
-              <div className={`rounded-xl p-6 border-2 transition-all duration-300 ${results.winner === 'Scenario 2' ? 'bg-purple-50 border-purple-500 shadow-md transform scale-[1.02]' : 'bg-white border-slate-100 opacity-80'}`}>
+              <div className={`rounded-xl p-6 border-2 transition-all duration-300 relative overflow-hidden ${results.winner === 'Scenario 2' ? 'bg-purple-50 border-purple-500 shadow-md transform scale-[1.02]' : 'bg-white border-slate-100 opacity-80'}`}>
+                
+                {results.scenario2.hitCliff && (
+                   <div className="absolute -right-8 top-6 bg-red-500 text-white text-[10px] font-bold py-1 px-8 rotate-45 shadow-sm z-10">
+                     CLIFF HIT
+                   </div>
+                )}
+
                 <div className="flex justify-between items-start mb-4">
                   <h3 className="text-lg font-bold text-slate-900">Scenario 2: ACA Path</h3>
                   {results.winner === 'Scenario 2' && <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded-full font-bold">WINNER</span>}
@@ -245,10 +297,18 @@ const App: React.FC = () => {
                     <span>Premium Cost</span>
                     <span>${inputs.annualPremium.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between text-purple-600 font-medium">
+                  <div className={`flex justify-between font-medium ${results.scenario2.hitCliff ? 'text-slate-400 line-through' : 'text-purple-600'}`}>
                     <span>ACA Subsidy (PTC)</span>
-                    <span>- ${results.scenario2.subsidy.toLocaleString()}</span>
+                    <span>- ${inputs.estimatedSubsidy.toLocaleString()}</span>
                   </div>
+                  
+                  {results.scenario2.hitCliff && (
+                    <div className="flex justify-between text-red-600 font-medium text-xs bg-red-50 p-1 rounded">
+                      <span>Subsidy (Cliff &gt; 400% FPL)</span>
+                      <span>$0</span>
+                    </div>
+                  )}
+
                   <div className="pt-3 mt-3 border-t border-slate-200 flex justify-between items-center">
                     <span className="font-semibold text-slate-700">Net Annual Cost</span>
                     <span className="text-2xl font-bold text-slate-900">${results.scenario2.netCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
@@ -256,8 +316,23 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-slate-200/50 text-xs text-slate-500">
-                  <p>Est. MAGI: <span className="font-mono">${results.scenario2.magi.toLocaleString()}</span></p>
-                  <p>Strategy: Tax-Loss Harvesting</p>
+                  <div className="flex justify-between items-center">
+                    <span>Est. MAGI: <span className="font-mono">${results.scenario2.magi.toLocaleString()}</span></span>
+                    <span className={`font-bold ${results.scenario2.hitCliff ? 'text-red-600' : 'text-green-600'}`}>
+                      {results.scenario2.fplPercentage.toFixed(0)}% FPL
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2">
+                    <div 
+                      className={`h-1.5 rounded-full ${results.scenario2.hitCliff ? 'bg-red-500' : 'bg-green-500'}`} 
+                      style={{ width: `${Math.min(results.scenario2.fplPercentage / 5, 100)}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                    <span>0%</span>
+                    <span>400% (Cliff)</span>
+                    <span>500%</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -323,7 +398,10 @@ const App: React.FC = () => {
                     <tr>
                       <td className="px-4 py-2 font-medium text-slate-700">Tax Savings / Subsidy</td>
                       <td className="px-4 py-2 text-right text-emerald-600">(${results.scenario1.taxSavings.toLocaleString()})</td>
-                      <td className="px-4 py-2 text-right text-purple-600">(${results.scenario2.subsidy.toLocaleString()})</td>
+                      <td className={`px-4 py-2 text-right ${results.scenario2.hitCliff ? 'text-red-500 font-bold' : 'text-purple-600'}`}>
+                        (${results.scenario2.subsidy.toLocaleString()})
+                        {results.scenario2.hitCliff && <span className="block text-[10px] font-normal">Hit Cliff ({results.scenario2.fplPercentage.toFixed(0)}% FPL)</span>}
+                      </td>
                     </tr>
                     <tr className="bg-slate-100">
                       <td className="px-4 py-3 font-black text-slate-900">Net Annual Cost</td>

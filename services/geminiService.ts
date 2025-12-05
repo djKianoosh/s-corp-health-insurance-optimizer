@@ -19,6 +19,7 @@ export const getAIAnalysis = async (inputs: FinancialInputs, results: ScenarioRe
     Analyze the following comparison between two health insurance funding strategies for a 2% S-Corp shareholder:
 
     **Detailed Financial Inputs:**
+    - Household Size: ${inputs.householdSize}
     - S-Corp Owner Gross Pay: $${inputs.sCorpOwner.grossPay.toLocaleString()}
       - Pre-tax 401k: $${inputs.sCorpOwner.preTax401k.toLocaleString()}
       - HSA: $${inputs.sCorpOwner.hsaNonTaxable.toLocaleString()}
@@ -29,7 +30,7 @@ export const getAIAnalysis = async (inputs: FinancialInputs, results: ScenarioRe
     - Health Insurance Premium: $${inputs.annualPremium.toLocaleString()}
     - Marginal Tax Bracket: ${inputs.marginalTaxRate}%
     - Available Capital Losses (Harvesting): $${inputs.capitalLosses.toLocaleString()}
-    - Estimated ACA Subsidy (PTC): $${inputs.estimatedSubsidy.toLocaleString()}
+    - Estimated ACA Subsidy (User Input): $${inputs.estimatedSubsidy.toLocaleString()}
 
     **Calculated Results:**
     - Scenario 1 (S-Corp Deduction Path) Net Cost: $${results.scenario1.netCost.toLocaleString()}
@@ -37,7 +38,9 @@ export const getAIAnalysis = async (inputs: FinancialInputs, results: ScenarioRe
     
     - Scenario 2 (ACA Subsidies Path) Net Cost: $${results.scenario2.netCost.toLocaleString()}
       - Adjusted MAGI for ACA: $${results.scenario2.magi.toLocaleString()}
-      - Subsidy Applied: $${results.scenario2.subsidy.toLocaleString()}
+      - FPL Percentage: ${results.scenario2.fplPercentage.toFixed(1)}%
+      - Hit 400% Cliff: ${results.scenario2.hitCliff ? 'YES (Subsidy reduced to $0)' : 'NO'}
+      - Actual Subsidy Applied: $${results.scenario2.subsidy.toLocaleString()}
 
     **Winner:** ${results.winner} saves approximately $${results.savings.toLocaleString()} per year.
 
@@ -45,7 +48,8 @@ export const getAIAnalysis = async (inputs: FinancialInputs, results: ScenarioRe
     Provide a concise (max 200 words) strategic analysis. 
     1. Confirm the winning strategy.
     2. Discuss the impact of the pre-tax deductions (401k/HSA) on the MAGI for Scenario 2.
-    3. Suggest a recommendation, including any risks like income volatility for ACA subsidies.
+    3. If the "Cliff" was hit (MAGI > 400% FPL), explain that this assumes the 2026 expiration of enhanced subsidies and suggest how much additional loss harvesting or 401k contribution is needed to get back under the cliff.
+    4. Suggest a recommendation.
   `;
 
   try {

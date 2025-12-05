@@ -17,6 +17,7 @@ export interface FinancialInputs {
   capitalLosses: number;
   marginalTaxRate: number; // as a percentage, e.g., 24
   estimatedSubsidy: number; // PTC
+  householdSize: number;
 }
 
 export interface ScenarioResult {
@@ -33,6 +34,8 @@ export interface ScenarioResult {
     magi: number;
     subsidy: number;
     netCost: number;
+    hitCliff: boolean;
+    fplPercentage: number;
   };
   winner: 'Scenario 1' | 'Scenario 2' | 'Equal';
   savings: number;
