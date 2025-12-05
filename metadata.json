@@ -1,0 +1,5 @@
+{
+  "name": "S-Corp Health Insurance Optimizer",
+  "description": "A financial modeling tool comparing S-Corp SEHI deduction strategies vs. ACA subsidy optimization with Tax-Loss Harvesting.",
+  "requestFramePermissions": []
+}
