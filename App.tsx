@@ -19,11 +19,29 @@ const initialPayStub: PayStubData = {
 
 const App: React.FC = () => {
   const [inputs, setInputs] = useState<FinancialInputs>({
-    sCorpOwner: { ...initialPayStub, grossPay: 80000, preTax401k: 5000, hsaNonTaxable: 3000 },
-    spouse: { ...initialPayStub, grossPay: 45000 },
+    sCorpOwner: { 
+      ...initialPayStub, 
+      grossPay: 80000, 
+      fedWithholding: 8500,
+      socialSecurity: 4960,
+      medicare: 1160,
+      stateWithholding: 4200,
+      preTax401k: 5000, 
+      hsaNonTaxable: 3000 
+    },
+    spouse: { 
+      ...initialPayStub, 
+      grossPay: 45000,
+      fedWithholding: 3200,
+      socialSecurity: 2790,
+      medicare: 653,
+      stateWithholding: 2100,
+      preTax401k: 2500,
+      hsaNonTaxable: 1000
+    },
     otherIncome: 5000,
     taxExemptInterest: 0,
-    annualPremium: 12000,
+    annualPremium: 15000,
     capitalLosses: 0,
     marginalTaxRate: 24,
     estimatedSubsidy: 8000,
