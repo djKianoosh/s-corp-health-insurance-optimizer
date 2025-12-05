@@ -10,8 +10,20 @@ export const getAIAnalysis = async (inputs: FinancialInputs, results: ScenarioRe
 
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
-  const sCorpNetTaxable = inputs.sCorpOwner.grossPay - inputs.sCorpOwner.preTax401k - inputs.sCorpOwner.hsaNonTaxable;
-  const spouseNetTaxable = inputs.spouse.grossPay - inputs.spouse.preTax401k - inputs.spouse.hsaNonTaxable;
+  // Calculate Gap to Cliff if hit
+  let cliffGapString = "";
+  if (results.scenario2.hitCliff && results.scenario2.fplPercentage > 400) {
+    const magi = results.scenario2.magi;
+    const fplPercent = results.scenario2.fplPercentage;
+    // targetMagi corresponds to 400% FPL
+    // currentMagi corresponds to fplPercent
+    // targetMagi = currentMagi * (400 / fplPercent)
+    const targetMagi = magi * (400 / fplPercent);
+    const gap = magi - targetMagi;
+    // Add a $100 buffer for safety in recommendation
+    const safeGap = Math.ceil(gap + 100);
+    cliffGapString = `$${safeGap.toLocaleString()}`;
+  }
 
   const prompt = `
     You are an expert tax accountant and financial planner specialized in US tax law for S-Corporation owners.
@@ -26,7 +38,7 @@ export const getAIAnalysis = async (inputs: FinancialInputs, results: ScenarioRe
     - Plan Deductible: $${inputs.planDeductible.toLocaleString()} | OOP Max: $${inputs.planOOPMax.toLocaleString()}
     - Marginal Tax Bracket: ${inputs.marginalTaxRate}%
     - Available Capital Losses (Harvesting): $${inputs.capitalLosses.toLocaleString()}
-    - Estimated ACA Subsidy (User Input): $${inputs.estimatedSubsidy.toLocaleString()}
+    - Estimated ACA Subsidy (User Input if eligible): $${inputs.estimatedSubsidy.toLocaleString()}
 
     **Calculated Results:**
     - Scenario 1 (S-Corp Deduction Path) Net Premium Cost: $${results.scenario1.netCost.toLocaleString()}
@@ -35,7 +47,7 @@ export const getAIAnalysis = async (inputs: FinancialInputs, results: ScenarioRe
     - Scenario 2 (ACA Subsidies Path) Net Premium Cost: $${results.scenario2.netCost.toLocaleString()}
       - Adjusted MAGI for ACA: $${results.scenario2.magi.toLocaleString()}
       - FPL Percentage: ${results.scenario2.fplPercentage.toFixed(1)}%
-      - Hit 400% Cliff: ${results.scenario2.hitCliff ? 'YES (Subsidy reduced to $0)' : 'NO'}
+      - Hit 400% Cliff: ${results.scenario2.hitCliff ? `YES. (Subsidy lost)` : 'NO'}
 
     **Total Liability Scenarios (Premium + Est. Medical OOP):**
     - High Usage (Catastrophic): Scen 1 Total = $${results.usageScenarios.high.totalCostScen1.toLocaleString()} vs Scen 2 Total = $${results.usageScenarios.high.totalCostScen2.toLocaleString()}
@@ -47,7 +59,7 @@ export const getAIAnalysis = async (inputs: FinancialInputs, results: ScenarioRe
     1. Confirm the winning strategy based on Net Premium Cost.
     2. Discuss risk: Does the premium savings in the winning scenario justify the plan's deductible/OOP exposure?
     3. Discuss the impact of pre-tax deductions (401k/HSA) on the ACA MAGI.
-    4. If the "Cliff" was hit, suggest specific actions (e.g., $X more in 401k contributions) to qualify.
+    ${results.scenario2.hitCliff ? `4. **CRITICAL**: The user hit the subsidy cliff by approximately ${cliffGapString}. You MUST explicitly recommend reducing MAGI by at least ${cliffGapString} (e.g., via increased 401k or HSA contributions) to get below 400% FPL and reclaim the $${inputs.estimatedSubsidy.toLocaleString()} subsidy.` : '4. Mention keeping an eye on MAGI limits if close to the 400% FPL cliff.'}
   `;
 
   try {

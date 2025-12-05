@@ -58,27 +58,34 @@ const App: React.FC = () => {
     } = inputs;
 
     // --- Core Financial Calcs ---
+    // Calculate Box 1 Wages (Gross - PreTax Deductions)
     const sCorpBaseBox1 = Math.max(0, sCorpOwner.grossPay - sCorpOwner.preTax401k - sCorpOwner.hsaNonTaxable);
     const spouseBaseBox1 = Math.max(0, spouse.grossPay - spouse.preTax401k - spouse.hsaNonTaxable);
 
-    // Scenario 1: S Corp
+    // Scenario 1: S Corp Deduction Path
+    // In this path, the premium is treated as W-2 wages, then deducted.
     const sCorpW2Scenario1 = sCorpBaseBox1 + annualPremium; 
     const initialAGIScenario1 = sCorpW2Scenario1 + spouseBaseBox1 + otherIncome;
-    const deductibleSEHI = Math.min(annualPremium, sCorpW2Scenario1);
+    const deductibleSEHI = Math.min(annualPremium, sCorpW2Scenario1); // SEHI limited by Medicare wages from S-Corp
     const finalAGIScenario1 = initialAGIScenario1 - deductibleSEHI;
     const taxSavings = deductibleSEHI * (marginalTaxRate / 100);
     const netCostScen1 = annualPremium - taxSavings;
 
-    // Scenario 2: ACA
+    // Scenario 2: ACA Subsidies Path
     const initialAGIScenario2 = sCorpBaseBox1 + spouseBaseBox1 + otherIncome;
+    
+    // MAGI Calculation: AGI + Tax Exempt Interest
     const baseMAGI = initialAGIScenario2 + taxExemptInterest;
+    
+    // Apply Tax-Loss Harvesting to reduce MAGI (floored at 0)
     const finalMAGI = Math.max(0, baseMAGI - capitalLosses);
     
-    // Cliff Logic (2026)
+    // Cliff Logic (2026) - 400% FPL
     const FPL_BASE = 15060;
     const FPL_PER_PERSON = 5380;
     const povertyLevel = FPL_BASE + (FPL_PER_PERSON * Math.max(0, householdSize - 1));
     const fplPercentage = povertyLevel > 0 ? (finalMAGI / povertyLevel) * 100 : 0;
+    
     const hitCliff = fplPercentage > 400;
     const subsidy = hitCliff ? 0 : estimatedSubsidy;
     const netCostScen2 = Math.max(0, annualPremium - subsidy);
@@ -89,7 +96,7 @@ const App: React.FC = () => {
     if (diff > 0) winner = 'Scenario 2';
     if (diff < 0) winner = 'Scenario 1';
 
-    // --- Medical Usage Logic ---
+    // --- Medical Usage Logic (Total Cost of Ownership) ---
     const calculateOOP = (billedAmount: number) => {
       if (billedAmount <= planDeductible) return billedAmount;
       const remaining = billedAmount - planDeductible;
