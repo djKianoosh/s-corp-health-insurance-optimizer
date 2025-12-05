@@ -1,6 +1,6 @@
 # S-Corp Health Insurance Optimizer
 
-![App Screenshot](./screenshot.png)
+![App Screenshot](./s-corp-health-insurance-optimizer-screenshot.png)
 
 ## Purpose
 
