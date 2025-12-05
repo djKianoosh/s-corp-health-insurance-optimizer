@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, ExternalLink, BookOpen, Scale, FileText } from 'lucide-react';
+import { X, ExternalLink, BookOpen, Scale, FileText, Github } from 'lucide-react';
 
 interface AboutPanelProps {
   isOpen: boolean;
@@ -104,6 +104,26 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({ isOpen, onClose }) => {
                 </a>
               </li>
             </ul>
+          </section>
+
+          {/* Section 4: Open Source */}
+          <section>
+             <div className="flex items-center gap-2 mb-3 text-slate-800">
+              <Github className="w-5 h-5" />
+              <h3 className="font-semibold text-lg">Open Source</h3>
+            </div>
+            <p className="text-slate-600 text-sm mb-4">
+              This project is open source. If you have feedback, feature requests, or found a bug, please submit an issue on GitHub.
+            </p>
+            <a 
+              href="https://github.com/djKianoosh/s-corp-health-insurance-optimizer" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="inline-flex items-center justify-center w-full gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors"
+            >
+              <Github className="w-4 h-4" />
+              View on GitHub
+            </a>
           </section>
 
         </div>
