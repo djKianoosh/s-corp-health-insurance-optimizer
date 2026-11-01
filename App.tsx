@@ -1,6 +1,34 @@
 import React, { useState, useMemo } from 'react';
-import { Calculator, ArrowRight, DollarSign, TrendingDown, Info, AlertTriangle, Shield, HelpCircle } from 'lucide-react';
-import { FinancialInputs, ScenarioResult, PayStubData, UsageScenarioCost } from './types';
+import { 
+  Calculator, 
+  ArrowRight, 
+  DollarSign, 
+  TrendingDown, 
+  Info, 
+  AlertTriangle, 
+  Shield, 
+  HelpCircle,
+  Sparkles,
+  CheckCircle2,
+  Sliders,
+  TrendingUp,
+  Layers
+} from 'lucide-react';
+import { 
+  FinancialInputs, 
+  ScenarioResult, 
+  PayStubData, 
+  UsageScenarioCost, 
+  SubsidyScenarioMode,
+  FPL_2027_BASE,
+  FPL_2027_PER_PERSON,
+  HSA_2027_SELF_LIMIT,
+  HSA_2027_FAMILY_LIMIT,
+  HDHP_2027_SELF_OOP_MAX,
+  HDHP_2027_FAMILY_OOP_MAX,
+  HDHP_2027_SELF_MIN_DEDUCTIBLE,
+  HDHP_2027_FAMILY_MIN_DEDUCTIBLE
+} from './types';
 import { InputGroup } from './components/InputGroup';
 import { PayStubInput } from './components/PayStubInput';
 import { ComparisonChart } from './components/ComparisonChart';
@@ -23,43 +51,62 @@ const App: React.FC = () => {
   const [inputs, setInputs] = useState<FinancialInputs>({
     sCorpOwner: { 
       ...initialPayStub, 
-      grossPay: 80000, 
-      fedWithholding: 8500,
-      socialSecurity: 4960,
-      medicare: 1160,
-      stateWithholding: 4200,
-      preTax401k: 5000, 
-      hsaNonTaxable: 3000 
+      grossPay: 85000, 
+      fedWithholding: 9200,
+      socialSecurity: 5270,
+      medicare: 1233,
+      stateWithholding: 4500,
+      preTax401k: 6000, 
+      hsaNonTaxable: 3500 
     },
     spouse: { 
       ...initialPayStub, 
-      grossPay: 45000,
-      fedWithholding: 3200,
-      socialSecurity: 2790,
-      medicare: 653,
-      stateWithholding: 2100,
-      preTax401k: 2500,
-      hsaNonTaxable: 1000
+      grossPay: 48000,
+      fedWithholding: 3500,
+      socialSecurity: 2976,
+      medicare: 696,
+      stateWithholding: 2200,
+      preTax401k: 3000,
+      hsaNonTaxable: 1500
     },
     otherIncome: 5000,
     taxExemptInterest: 0,
     nonTaxableSocialSecurity: 0,
-    annualPremium: 15000,
+    annualPremium: 16500,
     capitalLosses: 0,
     marginalTaxRate: 24,
-    estimatedSubsidy: 8000,
+    estimatedSubsidy: 8400,
     householdSize: 3,
-    planDeductible: 14200,
-    planOOPMax: 14200,
-    planCoinsurance: 0
+    planDeductible: 3500,
+    planOOPMax: 17400,
+    planCoinsurance: 20,
+    subsidyScenario: 'strict_cliff'
   });
 
-  const handleInputChange = (field: keyof FinancialInputs, value: number) => {
+  const handleInputChange = (field: keyof FinancialInputs, value: any) => {
     setInputs(prev => ({ ...prev, [field]: value }));
   };
 
   const handlePayStubChange = (role: 'sCorpOwner' | 'spouse', data: PayStubData) => {
     setInputs(prev => ({ ...prev, [role]: data }));
+  };
+
+  const applyPlanPreset = (type: 'individual' | 'family') => {
+    if (type === 'individual') {
+      setInputs(prev => ({
+        ...prev,
+        planDeductible: HDHP_2027_SELF_MIN_DEDUCTIBLE,
+        planOOPMax: HDHP_2027_SELF_OOP_MAX,
+        annualPremium: 8200
+      }));
+    } else {
+      setInputs(prev => ({
+        ...prev,
+        planDeductible: HDHP_2027_FAMILY_MIN_DEDUCTIBLE,
+        planOOPMax: HDHP_2027_FAMILY_OOP_MAX,
+        annualPremium: 16500
+      }));
+    }
   };
 
   const results: ScenarioResult = useMemo(() => {
@@ -76,13 +123,14 @@ const App: React.FC = () => {
       householdSize,
       planDeductible,
       planOOPMax,
-      planCoinsurance
+      planCoinsurance,
+      subsidyScenario
     } = inputs;
 
-    // --- Core Financial Calcs ---
+    // --- Core Financial Calcs for 2027 ---
     
     // S-Corp Owner: 2% Shareholders cannot take pre-tax HSA via payroll (Section 125). 
-    // It's taxable wages, then deducted on 1040. 
+    // It is reported in Box 1 wages, then deducted above-the-line on 1040 Schedule 1 (Form 8889). 
     // Box 1 = Gross - 401k (HSA is NOT removed here for Owner).
     const sCorpBox1Wages = Math.max(0, sCorpOwner.grossPay - sCorpOwner.preTax401k);
     
@@ -91,10 +139,10 @@ const App: React.FC = () => {
     const spouseBox1Wages = Math.max(0, spouse.grossPay - spouse.preTax401k - spouse.hsaNonTaxable);
 
     // Common Deductions/Adjustments
-    const sCorpHsaDeduction = sCorpOwner.hsaNonTaxable; // Above-the-line deduction for owner
+    const sCorpHsaDeduction = sCorpOwner.hsaNonTaxable; // Above-the-line deduction on Form 1040
     const capitalLossDeduction = Math.min(capitalLosses, 3000); // IRS Limit: Max $3k net loss against ordinary income
 
-    // --- Scenario 1: S Corp Deduction Path ---
+    // --- Scenario 1: S Corp Deduction Path (2027) ---
     // Premium added to W-2 (Box 1), then deducted (SEHI)
     const sCorpW2Scenario1 = sCorpBox1Wages + annualPremium; 
     
@@ -106,15 +154,15 @@ const App: React.FC = () => {
       sCorpHsaDeduction - 
       capitalLossDeduction;
 
-    // SEHI Limitation: Cannot exceed Medicare wages from S-Corp
+    // SEHI Limitation: Cannot exceed Medicare wages from S-Corp (Notice 2008-1)
     const deductibleSEHI = Math.min(annualPremium, sCorpW2Scenario1); 
     
     const finalAGIScenario1 = initialAGIScenario1 - deductibleSEHI;
     const taxSavings = deductibleSEHI * (marginalTaxRate / 100);
     const netCostScen1 = annualPremium - taxSavings;
 
-    // --- Scenario 2: ACA Subsidies Path ---
-    // Premium paid personally (after-tax). Not in W-2. Not Deducted.
+    // --- Scenario 2: ACA Subsidies Path (2027 Rules) ---
+    // Premium paid personally (after-tax). Not in W-2. Not Deducted on Schedule 1.
     
     // AGI Calculation Scen 2
     const initialAGIScenario2 = 
@@ -125,21 +173,35 @@ const App: React.FC = () => {
       capitalLossDeduction;
 
     // MAGI Calculation (ACA Specifics Form 8962)
-    // MAGI = AGI + Tax-Exempt Interest + Non-Taxable Social Security + Foreign Earned Income (ignored here)
+    // MAGI = AGI + Tax-Exempt Interest + Non-Taxable Social Security + Foreign Earned Income (floored at 0)
     const baseMAGI = initialAGIScenario2 + taxExemptInterest + nonTaxableSocialSecurity;
-    
-    // Note: capitalLossDeduction was already applied to AGI above, correctly reducing MAGI.
-    // We floor at 0.
     const finalMAGI = Math.max(0, baseMAGI);
     
-    // Cliff Logic (2026) - 400% FPL
-    const FPL_BASE = 15060;
-    const FPL_PER_PERSON = 5380;
-    const povertyLevel = FPL_BASE + (FPL_PER_PERSON * Math.max(0, householdSize - 1));
+    // 2027 Federal Poverty Level Calculation (HHS Guidelines for 2027 ACA coverage year)
+    // $15,960 base for 1 person + $5,680 per additional household member
+    const povertyLevel = FPL_2027_BASE + (FPL_2027_PER_PERSON * Math.max(0, householdSize - 1));
     const fplPercentage = povertyLevel > 0 ? (finalMAGI / povertyLevel) * 100 : 0;
     
-    const hitCliff = fplPercentage > 400;
-    const subsidy = hitCliff ? 0 : estimatedSubsidy;
+    let hitCliff = false;
+    let subsidy = estimatedSubsidy;
+    let cliffGap = 0;
+
+    if (subsidyScenario === 'strict_cliff') {
+      // Standard 2027 rule: Strict 400% FPL cliff
+      hitCliff = fplPercentage > 400;
+      subsidy = hitCliff ? 0 : estimatedSubsidy;
+      if (hitCliff) {
+        const targetMagi = 4.0 * povertyLevel;
+        cliffGap = Math.max(0, Math.ceil(finalMAGI - targetMagi));
+      }
+    } else {
+      // Enhanced Subsidy Extension Scenario (IRA rules continued):
+      // No 400% cliff; subsidy continues with benchmark contributions capped
+      hitCliff = false;
+      subsidy = estimatedSubsidy;
+      cliffGap = 0;
+    }
+
     const netCostScen2 = Math.max(0, annualPremium - subsidy);
 
     // Winner Logic
@@ -186,7 +248,10 @@ const App: React.FC = () => {
         subsidy,
         netCost: netCostScen2,
         hitCliff,
-        fplPercentage
+        cliffGap,
+        povertyLevel,
+        fplPercentage,
+        subsidyScenario
       },
       usageScenarios: { low, medium, high },
       winner,
@@ -199,23 +264,33 @@ const App: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
-        <header className="mb-10 text-center relative">
+        <header className="mb-8 text-center relative">
           <button 
             onClick={() => setIsAboutOpen(true)}
-            className="absolute right-0 top-0 p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-full transition-all"
-            title="About this tool"
+            className="absolute right-0 top-0 p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-full transition-all border border-transparent hover:border-slate-200"
+            title="About 2027 rules"
           >
             <HelpCircle className="w-6 h-6" />
           </button>
 
-          <div className="inline-flex items-center justify-center p-3 bg-blue-600 rounded-full shadow-lg mb-4">
+          <div className="inline-flex items-center justify-center p-3 bg-blue-600 rounded-full shadow-lg mb-3">
             <Calculator className="w-8 h-8 text-white" />
           </div>
+          
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full">
+              2027 Open Enrollment
+            </span>
+            <span className="text-xs text-slate-500">
+              Tax Year 2027 Guidelines
+            </span>
+          </div>
+
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
             S-Corp Health Insurance Optimizer
           </h1>
-          <p className="mt-2 text-lg text-slate-600 max-w-2xl mx-auto">
-            Compare the <span className="font-semibold text-blue-600">SEHI Deduction</span> vs. <span className="font-semibold text-purple-600">ACA Subsidy (2026 Rules)</span> including Plan Deductibles.
+          <p className="mt-2 text-base text-slate-600 max-w-2xl mx-auto">
+            Compare the <span className="font-semibold text-blue-600">SEHI Deduction</span> vs. <span className="font-semibold text-purple-600">ACA Subsidy Optimization</span> under 2027 rules with 400% FPL cliff policy modeling.
           </p>
         </header>
 
@@ -226,14 +301,17 @@ const App: React.FC = () => {
           {/* Left Column: User Inputs */}
           <div className="lg:col-span-5 space-y-6">
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-              <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
-                <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
-                <h2 className="text-xl font-semibold text-slate-800">Financial Inputs</h2>
+              <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
+                  <h2 className="text-xl font-semibold text-slate-800">Financial Inputs</h2>
+                </div>
+                <span className="text-xs font-medium text-slate-500">2027 Standards</span>
               </div>
               
               <div className="space-y-6">
                 <PayStubInput 
-                  title="S-Corp Owner Pay" 
+                  title="S-Corp Owner Pay (2027)" 
                   data={inputs.sCorpOwner} 
                   onChange={(d) => handlePayStubChange('sCorpOwner', d)}
                   colorClass="text-blue-600"
@@ -241,7 +319,7 @@ const App: React.FC = () => {
                 />
 
                 <PayStubInput 
-                  title="Spouse Pay" 
+                  title="Spouse Pay (2027)" 
                   data={inputs.spouse} 
                   onChange={(d) => handlePayStubChange('spouse', d)}
                   colorClass="text-slate-600"
@@ -252,21 +330,21 @@ const App: React.FC = () => {
 
               <InputGroup 
                 label="Other Taxable Income" 
-                tooltip="Interest, dividends, rental income, etc."
+                tooltip="Interest, ordinary dividends, rental profits, K-1 non-wage distributions, etc."
                 value={inputs.otherIncome} 
                 onChange={(v) => handleInputChange('otherIncome', v)} 
               />
 
               <InputGroup 
                 label="Tax-Exempt Interest" 
-                tooltip="Municipal bonds, etc. Adds back to MAGI."
+                tooltip="Municipal bonds, etc. Required statutory add-back to MAGI for ACA subsidies (Form 8962)."
                 value={inputs.taxExemptInterest} 
                 onChange={(v) => handleInputChange('taxExemptInterest', v)} 
               />
 
               <InputGroup 
                 label="Non-Taxable Social Security" 
-                tooltip="Non-taxable portion of SS benefits. Adds back to MAGI."
+                tooltip="Non-taxable portion of SS benefits. Statutory add-back to MAGI under IRC Section 36B."
                 value={inputs.nonTaxableSocialSecurity} 
                 onChange={(v) => handleInputChange('nonTaxableSocialSecurity', v)} 
               />
@@ -276,69 +354,151 @@ const App: React.FC = () => {
                 prefix="" 
                 suffix="%" 
                 step={1}
-                tooltip="The highest federal tax bracket you fall into (e.g., 22%, 24%, 32%)."
+                tooltip="Your marginal federal tax bracket for 2027 (e.g., 22%, 24%, 32%, 35%)."
                 value={inputs.marginalTaxRate} 
                 onChange={(v) => handleInputChange('marginalTaxRate', v)} 
               />
 
               <div className="my-6 border-t border-slate-100"></div>
 
-              <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 mt-6">
-                 <h3 className="text-sm font-semibold text-indigo-900 mb-3 flex items-center gap-2">
-                  <Shield className="w-4 h-4" />
-                  Health Plan Details
-                </h3>
+              {/* Health Plan Details Card */}
+              <div className="bg-indigo-50/60 p-4 rounded-lg border border-indigo-100 mt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-indigo-900 flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-indigo-600" />
+                    2027 Health Plan Details
+                  </h3>
+                </div>
+
+                {/* 2027 Presets Buttons */}
+                <div className="mb-4">
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <Layers className="w-3 h-3" />
+                    <span>2027 Statutory HDHP Presets</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => applyPlanPreset('individual')}
+                      className="px-2.5 py-1.5 text-xs font-medium rounded-md border border-indigo-200 bg-white hover:bg-indigo-100/60 text-indigo-800 transition-colors text-left"
+                    >
+                      <div className="font-semibold">Individual HDHP</div>
+                      <div className="text-[10px] text-slate-500 font-mono tabular-nums">$1,750 ded · $8,700 max</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyPlanPreset('family')}
+                      className="px-2.5 py-1.5 text-xs font-medium rounded-md border border-indigo-200 bg-white hover:bg-indigo-100/60 text-indigo-800 transition-colors text-left"
+                    >
+                      <div className="font-semibold">Family HDHP</div>
+                      <div className="text-[10px] text-slate-500 font-mono tabular-nums">$3,500 ded · $17,400 max</div>
+                    </button>
+                  </div>
+                </div>
+
                 <InputGroup 
                   label="Annual Health Premium" 
-                  tooltip="Total full cost of the insurance plan before any subsidies."
+                  tooltip="Total unsubsidized annual premium for the selected policy."
                   value={inputs.annualPremium} 
                   onChange={(v) => handleInputChange('annualPremium', v)} 
                 />
+                
                 <div className="grid grid-cols-2 gap-4">
-                   <InputGroup 
+                  <InputGroup 
                     label="Plan Deductible" 
-                    tooltip="Amount you pay before coinsurance kicks in."
+                    tooltip="2027 statutory minimum HDHP deductible is $1,750 (self-only) or $3,500 (family)."
                     value={inputs.planDeductible} 
                     onChange={(v) => handleInputChange('planDeductible', v)} 
                   />
                   <InputGroup 
                     label="OOP Max" 
-                    tooltip="Maximum out-of-pocket expenses per year."
+                    tooltip="2027 statutory maximum out-of-pocket is $8,700 (self-only) or $17,400 (family)."
                     value={inputs.planOOPMax} 
                     onChange={(v) => handleInputChange('planOOPMax', v)} 
                   />
                 </div>
+                
                 <InputGroup 
-                    label="Coinsurance (Your Share)" 
-                    tooltip="Percentage you pay after deductible (e.g. 20%)"
-                    value={inputs.planCoinsurance} 
-                    onChange={(v) => handleInputChange('planCoinsurance', v)} 
-                    prefix=""
-                    suffix="%"
-                    step={5}
+                  label="Coinsurance (Your Share)" 
+                  tooltip="Percentage you pay after deductible until OOP Max (e.g. 20%)."
+                  value={inputs.planCoinsurance} 
+                  onChange={(v) => handleInputChange('planCoinsurance', v)} 
+                  prefix=""
+                  suffix="%"
+                  step={5}
                 />
               </div>
 
-              <div className="bg-purple-50 p-4 rounded-lg border border-purple-100 mt-6">
-                <h3 className="text-sm font-semibold text-purple-900 mb-3 flex items-center gap-2">
-                  <TrendingDown className="w-4 h-4" />
-                  ACA Optimization Inputs
-                </h3>
+              {/* ACA Optimization Card */}
+              <div className="bg-purple-50/60 p-4 rounded-lg border border-purple-100 mt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-purple-900 flex items-center gap-2">
+                    <TrendingDown className="w-4 h-4 text-purple-600" />
+                    2027 ACA Optimization Inputs
+                  </h3>
+                </div>
+
+                {/* 2027 Subsidy Policy Scenario Toggle */}
+                <div className="mb-4 bg-white p-3 rounded-lg border border-purple-200">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-semibold text-purple-900 flex items-center gap-1">
+                      <Sliders className="w-3 h-3 text-purple-600" />
+                      2027 Subsidy Policy Rule
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono tabular-nums">
+                      FPL: {results.scenario2.fplPercentage.toFixed(1)}%
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-1 p-1 bg-purple-100/60 rounded-md">
+                    <button
+                      type="button"
+                      onClick={() => handleInputChange('subsidyScenario', 'strict_cliff')}
+                      className={`px-2 py-1.5 text-xs font-medium rounded transition-all ${
+                        inputs.subsidyScenario === 'strict_cliff'
+                          ? 'bg-white text-purple-900 shadow-sm font-semibold'
+                          : 'text-purple-700 hover:text-purple-900'
+                      }`}
+                    >
+                      Strict 400% Cliff
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleInputChange('subsidyScenario', 'enhanced_extension')}
+                      className={`px-2 py-1.5 text-xs font-medium rounded transition-all ${
+                        inputs.subsidyScenario === 'enhanced_extension'
+                          ? 'bg-white text-purple-900 shadow-sm font-semibold'
+                          : 'text-purple-700 hover:text-purple-900'
+                      }`}
+                    >
+                      Extended Subsidies
+                    </button>
+                  </div>
+                  
+                  <p className="text-[11px] text-slate-600 mt-2 leading-tight">
+                    {inputs.subsidyScenario === 'strict_cliff'
+                      ? 'Standard 2027 baseline: Taxpayers above 400% FPL receive $0 subsidy (Form 8962 strict cliff).'
+                      : 'Legislative extension scenario: Subsidies remain uncapped above 400% FPL with max 8.5% income contribution.'}
+                  </p>
+                </div>
                 
                 <div className="mb-4">
                   <InputGroup 
                     label="Household Size" 
-                    tooltip="Number of people on the tax return. Used to calculate FPL %."
+                    tooltip="Used to determine 2027 HHS Poverty Level ($15,960 + $5,680 per additional member)."
                     value={inputs.householdSize} 
                     onChange={(v) => handleInputChange('householdSize', v)} 
                     prefix=""
                     step={1}
                   />
+                  <div className="text-[11px] text-slate-500 font-mono tabular-nums mt-0.5">
+                    2027 FPL Benchmark (100%): ${results.scenario2.povertyLevel.toLocaleString()} · 400% Cliff: ${(results.scenario2.povertyLevel * 4).toLocaleString()}
+                  </div>
                 </div>
 
                 <InputGroup 
                   label="Capital Losses Available" 
-                  tooltip="Max $3,000 reduction against ordinary income."
+                  tooltip="Tax-loss harvesting deduction: Max $3,000 statutory net loss against ordinary income (IRC Section 1211(b)). Reduces AGI and ACA MAGI dollar-for-dollar."
                   value={inputs.capitalLosses} 
                   onChange={(v) => handleInputChange('capitalLosses', v)} 
                 />
@@ -346,14 +506,23 @@ const App: React.FC = () => {
                 <div className="relative">
                   <InputGroup 
                     label="Estimated ACA Subsidy (PTC)" 
-                    tooltip="Est. annual subsidy if eligible. Will be set to $0 if MAGI > 400% FPL."
+                    tooltip="Expected annual subsidy based on benchmark silver plan. Automatically zeroed if MAGI > 400% FPL under strict cliff."
                     value={inputs.estimatedSubsidy} 
                     onChange={(v) => handleInputChange('estimatedSubsidy', v)} 
                   />
+                  
                   {results.scenario2.hitCliff && (
-                    <div className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" />
-                      <span>Subsidy removed (MAGI &gt; 400% FPL)</span>
+                    <div className="mt-2 p-2.5 bg-red-50 border border-red-200 rounded-md text-xs text-red-700 space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                        <span>400% FPL Cliff Hit (${results.scenario2.fplPercentage.toFixed(1)}% of FPL)</span>
+                      </div>
+                      <p className="text-[11px] text-red-600">
+                        Household MAGI (<span className="font-mono tabular-nums font-semibold">${results.scenario2.magi.toLocaleString()}</span>) exceeds the 400% FPL limit (<span className="font-mono tabular-nums font-semibold">${(results.scenario2.povertyLevel * 4).toLocaleString()}</span>) by <span className="font-mono tabular-nums font-bold">${results.scenario2.cliffGap.toLocaleString()}</span>. Under 2027 standard rules, the entire ${inputs.estimatedSubsidy.toLocaleString()} subsidy is clawed back to $0.
+                      </p>
+                      <div className="pt-1 text-[11px] text-red-800 font-medium">
+                        💡 Tip: Reduce MAGI by at least <span className="font-mono tabular-nums font-bold">${results.scenario2.cliffGap.toLocaleString()}</span> via 401(k) contributions, HSA contributions, or capital loss harvesting to regain full eligibility.
+                      </div>
                     </div>
                   )}
                 </div>
@@ -368,147 +537,207 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               {/* Scenario 1 Card */}
-              <div className={`rounded-xl p-6 border-2 transition-all duration-300 ${results.winner === 'Scenario 1' ? 'bg-blue-50 border-blue-500 shadow-md transform scale-[1.02]' : 'bg-white border-slate-100 opacity-80'}`}>
+              <div className={`rounded-xl p-6 border-2 transition-all duration-300 ${
+                results.winner === 'Scenario 1' 
+                  ? 'bg-blue-50/70 border-blue-500 shadow-md' 
+                  : 'bg-white border-slate-200'
+              }`}>
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-bold text-slate-900">Scenario 1: S-Corp Path</h3>
-                  {results.winner === 'Scenario 1' && <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-bold">WINNER</span>}
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">Scenario 1: S-Corp Path</h3>
+                    <p className="text-xs text-slate-500">1040 Schedule 1 SEHI Deduction</p>
+                  </div>
+                  {results.winner === 'Scenario 1' && (
+                    <span className="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-full font-bold shadow-sm">
+                      WINNER
+                    </span>
+                  )}
                 </div>
                 
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between text-slate-600">
-                    <span>Premium Cost</span>
-                    <span>${inputs.annualPremium.toLocaleString()}</span>
+                    <span>Unsubsidized Premium</span>
+                    <span className="font-mono tabular-nums">${inputs.annualPremium.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-emerald-600 font-medium">
-                    <span>SEHI Tax Savings</span>
-                    <span>- ${results.scenario1.taxSavings.toLocaleString()}</span>
+                    <span>SEHI Tax Savings ({inputs.marginalTaxRate}%)</span>
+                    <span className="font-mono tabular-nums">- ${results.scenario1.taxSavings.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-500 text-xs">
+                    <span>Deductible SEHI Limit</span>
+                    <span className="font-mono tabular-nums">${results.scenario1.deductibleSEHI.toLocaleString()}</span>
                   </div>
                   <div className="pt-3 mt-3 border-t border-slate-200 flex justify-between items-center">
                     <span className="font-semibold text-slate-700">Net Premium Cost</span>
-                    <span className="text-2xl font-bold text-slate-900">${results.scenario1.netCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                    <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
+                      ${results.scenario1.netCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* Scenario 2 Card */}
-              <div className={`rounded-xl p-6 border-2 transition-all duration-300 relative overflow-hidden ${results.winner === 'Scenario 2' ? 'bg-purple-50 border-purple-500 shadow-md transform scale-[1.02]' : 'bg-white border-slate-100 opacity-80'}`}>
-                
+              <div className={`rounded-xl p-6 border-2 transition-all duration-300 relative overflow-hidden ${
+                results.winner === 'Scenario 2' 
+                  ? 'bg-purple-50/70 border-purple-500 shadow-md' 
+                  : 'bg-white border-slate-200'
+              }`}>
                 {results.scenario2.hitCliff && (
-                   <div className="absolute -right-8 top-6 bg-red-500 text-white text-[10px] font-bold py-1 px-8 rotate-45 shadow-sm z-10">
+                   <div className="absolute -right-8 top-6 bg-red-600 text-white text-[10px] font-bold py-1 px-8 rotate-45 shadow-sm z-10 uppercase tracking-wider">
                      CLIFF HIT
                    </div>
                 )}
 
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-bold text-slate-900">Scenario 2: ACA Path</h3>
-                  {results.winner === 'Scenario 2' && <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded-full font-bold">WINNER</span>}
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">Scenario 2: ACA Path</h3>
+                    <p className="text-xs text-slate-500">Premium Tax Credit (Form 8962)</p>
+                  </div>
+                  {results.winner === 'Scenario 2' && (
+                    <span className="bg-purple-600 text-white text-xs px-2.5 py-1 rounded-full font-bold shadow-sm">
+                      WINNER
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between text-slate-600">
-                    <span>Premium Cost</span>
-                    <span>${inputs.annualPremium.toLocaleString()}</span>
+                    <span>Unsubsidized Premium</span>
+                    <span className="font-mono tabular-nums">${inputs.annualPremium.toLocaleString()}</span>
                   </div>
-                  <div className={`flex justify-between font-medium ${results.scenario2.hitCliff ? 'text-slate-400 line-through' : 'text-purple-600'}`}>
+                  
+                  <div className={`flex justify-between font-medium ${
+                    results.scenario2.hitCliff ? 'text-slate-400 line-through' : 'text-purple-600'
+                  }`}>
                     <span>ACA Subsidy (PTC)</span>
-                    <span>- ${inputs.estimatedSubsidy.toLocaleString()}</span>
+                    <span className="font-mono tabular-nums">- ${inputs.estimatedSubsidy.toLocaleString()}</span>
                   </div>
                   
                   {results.scenario2.hitCliff && (
-                    <div className="flex justify-between text-red-600 font-medium text-xs bg-red-50 p-1 rounded">
-                      <span>Subsidy (Cliff &gt; 400% FPL)</span>
-                      <span>$0</span>
+                    <div className="flex justify-between text-red-600 font-medium text-xs bg-red-50 p-1.5 rounded">
+                      <span>Subsidy Clawback (&gt;400% FPL)</span>
+                      <span className="font-mono tabular-nums">$0 allowed</span>
                     </div>
                   )}
 
+                  <div className="flex justify-between text-slate-500 text-xs">
+                    <span>2027 FPL Standing</span>
+                    <span className="font-mono tabular-nums font-semibold">
+                      {results.scenario2.fplPercentage.toFixed(1)}% of FPL
+                    </span>
+                  </div>
+
                   <div className="pt-3 mt-3 border-t border-slate-200 flex justify-between items-center">
                     <span className="font-semibold text-slate-700">Net Premium Cost</span>
-                    <span className="text-2xl font-bold text-slate-900">${results.scenario2.netCost.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                    <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
+                      ${results.scenario2.netCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Recommendation Banner */}
-            <div className="bg-slate-900 rounded-lg p-4 text-white flex items-center justify-between shadow-lg">
+            <div className="bg-slate-900 rounded-xl p-4 text-white flex items-center justify-between shadow-lg">
               <div className="flex items-center gap-3">
-                <DollarSign className="w-6 h-6 text-green-400" />
+                <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg">
+                  <DollarSign className="w-6 h-6" />
+                </div>
                 <div>
                   <h4 className="font-bold text-lg">
                     {results.winner === 'Equal' 
-                      ? "Both options cost the same" 
-                      : `${results.winner} is the better option`
+                      ? "Both options result in equal net premium cost" 
+                      : `${results.winner} saves more on 2027 net premiums`
                     }
                   </h4>
                   <p className="text-slate-300 text-sm">
-                    Potential premium savings: <span className="text-green-400 font-bold">${results.savings.toLocaleString()}</span>
+                    Estimated annual difference: <span className="text-emerald-400 font-bold font-mono tabular-nums">${results.savings.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                    {results.scenario2.hitCliff && results.winner === 'Scenario 1' && (
+                      <span className="text-amber-300 ml-1 text-xs">(Driven by 400% FPL subsidy cliff expiration)</span>
+                    )}
                   </p>
                 </div>
               </div>
-              <ArrowRight className="w-6 h-6 text-slate-400" />
+              <ArrowRight className="w-6 h-6 text-slate-400 hidden sm:block" />
             </div>
 
             {/* Chart */}
             <ComparisonChart results={results} />
             
-            {/* New Usage Scenario Table */}
+            {/* Total Healthcare Liability Table */}
             <UsageScenarioTable results={results} />
 
-            {/* Detailed Breakdown Table */}
+            {/* Detailed Tax & AGI Breakdown Table */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mt-6">
               <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                <h3 className="font-semibold text-slate-800">Tax Calculation Details</h3>
-                <Info className="w-4 h-4 text-slate-400" />
+                <div className="flex items-center gap-2">
+                  <Info className="w-4 h-4 text-slate-500" />
+                  <h3 className="font-semibold text-slate-800">2027 Tax Calculation & MAGI Line Items</h3>
+                </div>
+                <span className="text-xs text-slate-500">IRS Notice 2008-1 vs. Form 8962</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200 text-sm">
-                  <thead className="bg-slate-50">
+                  <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     <tr>
-                      <th className="px-4 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Line Item</th>
-                      <th className="px-4 py-3 text-right font-medium text-blue-600 uppercase tracking-wider">Scenario 1 (S-Corp)</th>
-                      <th className="px-4 py-3 text-right font-medium text-purple-600 uppercase tracking-wider">Scenario 2 (ACA)</th>
+                      <th className="px-4 py-3 text-left">Line Item Description</th>
+                      <th className="px-4 py-3 text-right text-blue-600">Scenario 1 (S-Corp)</th>
+                      <th className="px-4 py-3 text-right text-purple-600">Scenario 2 (ACA)</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
                     <tr>
-                      <td className="px-4 py-2 font-medium text-slate-700">S-Corp Wages (Box 1)</td>
-                      <td className="px-4 py-2 text-right">${(Math.max(0, inputs.sCorpOwner.grossPay - inputs.sCorpOwner.preTax401k)).toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right">${(Math.max(0, inputs.sCorpOwner.grossPay - inputs.sCorpOwner.preTax401k)).toLocaleString()}</td>
+                      <td className="px-4 py-2 font-medium text-slate-700">S-Corp Owner Wages (W-2 Box 1)</td>
+                      <td className="px-4 py-2 text-right font-mono tabular-nums">${(Math.max(0, inputs.sCorpOwner.grossPay - inputs.sCorpOwner.preTax401k)).toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right font-mono tabular-nums">${(Math.max(0, inputs.sCorpOwner.grossPay - inputs.sCorpOwner.preTax401k)).toLocaleString()}</td>
                     </tr>
                     <tr>
-                      <td className="px-4 py-2 font-medium text-slate-700">Spouse Wages (Box 1)</td>
-                      <td className="px-4 py-2 text-right">${(Math.max(0, inputs.spouse.grossPay - inputs.spouse.preTax401k - inputs.spouse.hsaNonTaxable)).toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right">${(Math.max(0, inputs.spouse.grossPay - inputs.spouse.preTax401k - inputs.spouse.hsaNonTaxable)).toLocaleString()}</td>
+                      <td className="px-4 py-2 font-medium text-slate-700">Spouse Wages (W-2 Box 1)</td>
+                      <td className="px-4 py-2 text-right font-mono tabular-nums">${(Math.max(0, inputs.spouse.grossPay - inputs.spouse.preTax401k - inputs.spouse.hsaNonTaxable)).toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right font-mono tabular-nums">${(Math.max(0, inputs.spouse.grossPay - inputs.spouse.preTax401k - inputs.spouse.hsaNonTaxable)).toLocaleString()}</td>
                     </tr>
                     <tr>
-                      <td className="px-4 py-2 font-medium text-slate-700">Add: Premium to Wages</td>
-                      <td className="px-4 py-2 text-right text-blue-600">+ ${inputs.annualPremium.toLocaleString()}</td>
-                      <td className="px-4 py-2 text-right text-slate-300">$0</td>
+                      <td className="px-4 py-2 font-medium text-slate-700">Add: Premium Included in Owner W-2</td>
+                      <td className="px-4 py-2 text-right text-blue-600 font-mono tabular-nums">+ ${inputs.annualPremium.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-slate-400 font-mono tabular-nums">$0</td>
                     </tr>
                     <tr>
-                      <td className="px-4 py-2 font-medium text-slate-700">Deduct: SEHI</td>
-                      <td className="px-4 py-2 text-right text-red-500">(${results.scenario1.deductibleSEHI.toLocaleString()})</td>
-                      <td className="px-4 py-2 text-right text-slate-300">$0</td>
+                      <td className="px-4 py-2 font-medium text-slate-700">Deduct: SEHI Deduction (Schedule 1)</td>
+                      <td className="px-4 py-2 text-right text-red-500 font-mono tabular-nums">(${results.scenario1.deductibleSEHI.toLocaleString()})</td>
+                      <td className="px-4 py-2 text-right text-slate-400 font-mono tabular-nums">$0</td>
                     </tr>
                     <tr>
-                      <td className="px-4 py-2 font-medium text-slate-700">Deduct: Owner HSA (Form 8889)</td>
-                      <td className="px-4 py-2 text-right text-red-500">(${inputs.sCorpOwner.hsaNonTaxable.toLocaleString()})</td>
-                      <td className="px-4 py-2 text-right text-red-500">(${inputs.sCorpOwner.hsaNonTaxable.toLocaleString()})</td>
+                      <td className="px-4 py-2 font-medium text-slate-700">Deduct: Owner HSA (Form 8889 Above-Line)</td>
+                      <td className="px-4 py-2 text-right text-red-500 font-mono tabular-nums">(${inputs.sCorpOwner.hsaNonTaxable.toLocaleString()})</td>
+                      <td className="px-4 py-2 text-right text-red-500 font-mono tabular-nums">(${inputs.sCorpOwner.hsaNonTaxable.toLocaleString()})</td>
                     </tr>
-                     <tr>
-                      <td className="px-4 py-2 font-medium text-slate-700">Deduct: Capital Loss (Max $3k)</td>
-                      <td className="px-4 py-2 text-right text-red-500">(${Math.min(inputs.capitalLosses, 3000).toLocaleString()})</td>
-                      <td className="px-4 py-2 text-right text-red-500">(${Math.min(inputs.capitalLosses, 3000).toLocaleString()})</td>
+                    <tr>
+                      <td className="px-4 py-2 font-medium text-slate-700">Deduct: Capital Loss (Statutory $3k Max)</td>
+                      <td className="px-4 py-2 text-right text-red-500 font-mono tabular-nums">(${Math.min(inputs.capitalLosses, 3000).toLocaleString()})</td>
+                      <td className="px-4 py-2 text-right text-red-500 font-mono tabular-nums">(${Math.min(inputs.capitalLosses, 3000).toLocaleString()})</td>
                     </tr>
-                    <tr className="bg-slate-50">
-                      <td className="px-4 py-2 font-bold text-slate-800">Final Adjusted Income</td>
-                      <td className="px-4 py-2 text-right font-bold">${results.scenario1.finalAGI.toLocaleString()} <span className="text-xs text-slate-400 font-normal">(AGI)</span></td>
-                      <td className="px-4 py-2 text-right font-bold">${results.scenario2.magi.toLocaleString()} <span className="text-xs text-slate-400 font-normal">(MAGI)</span></td>
+                    <tr>
+                      <td className="px-4 py-2 font-medium text-slate-700">Add: Tax-Exempt Interest + Non-Taxable SS</td>
+                      <td className="px-4 py-2 text-right text-slate-400 font-mono tabular-nums">$0 (Excluded from AGI)</td>
+                      <td className="px-4 py-2 text-right text-purple-700 font-mono tabular-nums">+ ${(inputs.taxExemptInterest + inputs.nonTaxableSocialSecurity).toLocaleString()}</td>
                     </tr>
-                    <tr className="bg-slate-100">
-                      <td className="px-4 py-3 font-black text-slate-900">Net Annual Premium Cost</td>
-                      <td className="px-4 py-3 text-right font-black text-slate-900">${results.scenario1.netCost.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right font-black text-slate-900">${results.scenario2.netCost.toLocaleString()}</td>
+                    <tr className="bg-slate-50 font-bold">
+                      <td className="px-4 py-2 text-slate-800">Final Adjusted Income Comparison</td>
+                      <td className="px-4 py-2 text-right text-blue-900 font-mono tabular-nums">
+                        ${results.scenario1.finalAGI.toLocaleString()} <span className="text-xs text-slate-500 font-normal">(AGI)</span>
+                      </td>
+                      <td className="px-4 py-2 text-right text-purple-900 font-mono tabular-nums">
+                        ${results.scenario2.magi.toLocaleString()} <span className="text-xs text-slate-500 font-normal">(MAGI)</span>
+                      </td>
+                    </tr>
+                    <tr className="bg-slate-100 font-bold">
+                      <td className="px-4 py-3 text-slate-900">2027 Net Annual Premium Cost</td>
+                      <td className="px-4 py-3 text-right text-blue-900 font-mono tabular-nums text-base">
+                        ${results.scenario1.netCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </td>
+                      <td className="px-4 py-3 text-right text-purple-900 font-mono tabular-nums text-base">
+                        ${results.scenario2.netCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </td>
                     </tr>
                   </tbody>
                 </table>

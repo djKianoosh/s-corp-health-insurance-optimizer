@@ -53,20 +53,31 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({ isOpen, onClose }) => {
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
               <h4 className="font-bold text-blue-900 text-sm mb-2">Scenario 1: S-Corp Deduction (SEHI)</h4>
               <p className="text-xs text-blue-800 mb-2">
-                The S-Corp pays the premium (or reimburses you). It is reported as wages on your W-2 (Box 1) but is exempt from FICA taxes. You then take a "Self-Employed Health Insurance" (SEHI) deduction on your Form 1040.
+                The S-Corp pays the premium (or reimburses you). It is reported as wages on your W-2 (Box 1) but is exempt from FICA/Medicare taxes under Notice 2008-1. You then take a "Self-Employed Health Insurance" (SEHI) deduction on Form 1040 Schedule 1, limited to S-Corp Medicare wages.
               </p>
               <div className="text-[10px] font-medium text-blue-600 uppercase tracking-wide">Benefit</div>
-              <p className="text-xs text-slate-600">Effectively pays premiums with income-tax-free dollars.</p>
+              <p className="text-xs text-slate-600">Effectively pays premiums with 100% income-tax-free dollars without ACA reporting exposure.</p>
             </div>
 
             <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
               <h4 className="font-bold text-purple-900 text-sm mb-2">Scenario 2: ACA Subsidies (PTC)</h4>
               <p className="text-xs text-purple-800 mb-2">
-                You pay the premium personally using after-tax dollars. You do NOT take the SEHI deduction. Instead, you qualify for the Premium Tax Credit (PTC) based on your household Modified Adjusted Gross Income (MAGI).
+                You pay the premium personally using after-tax dollars (foregoing SEHI). You qualify for the Premium Tax Credit (PTC) based on household MAGI. For 2027, the standard rule enforces the strict 400% FPL cliff ($63,840 for 1 person, $109,280 for family of 3), with an optional toggle to model legislative extension scenarios.
               </p>
               <div className="text-[10px] font-medium text-purple-600 uppercase tracking-wide">Benefit</div>
-              <p className="text-xs text-slate-600">Subsidies can cap premiums at a % of income, potentially reducing cost to near zero.</p>
+              <p className="text-xs text-slate-600">Subsidies can dramatically lower net premiums if household MAGI remains safely under 400% FPL.</p>
             </div>
+          </section>
+
+          {/* Section 2b: 2027 Statutory Baselines */}
+          <section className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <h4 className="font-bold text-slate-800 text-sm mb-2">2027 Statutory Baselines</h4>
+            <ul className="text-xs text-slate-600 space-y-1.5">
+              <li>• <strong>2027 HHS Poverty Level:</strong> $15,960 base + $5,680 per additional household member.</li>
+              <li>• <strong>2027 HSA Limits:</strong> $4,500 individual / $9,000 family (+$1,000 catch-up age 55+).</li>
+              <li>• <strong>2027 HDHP OOP Maximum:</strong> $8,700 individual / $17,400 family.</li>
+              <li>• <strong>Capital Loss Deduction:</strong> Max $3,000 statutory net loss against ordinary income (IRC § 1211(b)).</li>
+            </ul>
           </section>
 
           {/* Section 3: Official Sources */}
@@ -81,7 +92,7 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({ isOpen, onClose }) => {
                   <ExternalLink className="w-4 h-4 text-slate-400 mt-0.5 group-hover:text-blue-600" />
                   <div>
                     <div className="text-sm font-medium text-slate-700 group-hover:text-blue-600">IRS: S-Corp Compensation</div>
-                    <div className="text-xs text-slate-500">Rules for 2% Shareholder Medical Insurance</div>
+                    <div className="text-xs text-slate-500">Notice 2008-1 & Section 162(l) SEHI rules</div>
                   </div>
                 </a>
               </li>
@@ -89,8 +100,8 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({ isOpen, onClose }) => {
                 <a href="https://www.healthcare.gov/glossary/modified-adjusted-gross-income-magi/" target="_blank" rel="noopener noreferrer" className="group flex items-start gap-2 hover:bg-slate-50 p-2 rounded transition-colors">
                   <ExternalLink className="w-4 h-4 text-slate-400 mt-0.5 group-hover:text-blue-600" />
                   <div>
-                    <div className="text-sm font-medium text-slate-700 group-hover:text-blue-600">Healthcare.gov: MAGI</div>
-                    <div className="text-xs text-slate-500">How income is calculated for subsidies</div>
+                    <div className="text-sm font-medium text-slate-700 group-hover:text-blue-600">Healthcare.gov: MAGI & 2027 FPL</div>
+                    <div className="text-xs text-slate-500">Calculation rules for Premium Tax Credit</div>
                   </div>
                 </a>
               </li>
@@ -99,7 +110,7 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({ isOpen, onClose }) => {
                   <ExternalLink className="w-4 h-4 text-slate-400 mt-0.5 group-hover:text-blue-600" />
                   <div>
                     <div className="text-sm font-medium text-slate-700 group-hover:text-blue-600">IRS Form 8962 Instructions</div>
-                    <div className="text-xs text-slate-500">Premium Tax Credit details</div>
+                    <div className="text-xs text-slate-500">Premium Tax Credit and Subsidy Cliff Guidelines</div>
                   </div>
                 </a>
               </li>
@@ -130,7 +141,7 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({ isOpen, onClose }) => {
         
         {/* Footer */}
         <div className="p-6 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 text-center">
-          <p>Version 1.2 • Updated for 2026 Projections</p>
+          <p>Version 2.0 • Updated for 2027 Open Enrollment</p>
         </div>
       </div>
     </>

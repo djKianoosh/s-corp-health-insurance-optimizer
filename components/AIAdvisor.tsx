@@ -29,7 +29,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ inputs, results }) => {
           </div>
           <div>
             <h3 className="font-bold text-indigo-900">AI Financial Advisor</h3>
-            <p className="text-xs text-indigo-600">Powered by Gemini 2.5 with Google Search</p>
+            <p className="text-xs text-indigo-600">Powered by Gemini 3.8 Flash with Google Search</p>
           </div>
         </div>
         <button

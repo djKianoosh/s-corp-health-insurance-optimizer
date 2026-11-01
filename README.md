@@ -1,8 +1,6 @@
 # S-Corp Health Insurance Optimizer
 
-[Open the app in Google's AI Studio](https://ai.studio/apps/drive/1GUvJk6OuKa4WVh51Vx9k5SQfaF8lEcTg?fullscreenApplet=true)
-
-![App Screenshot](./s-corp-health-insurance-optimizer-screenshot.png)
+![App Screenshot](./screenshot.png)
 
 ## Purpose
 
@@ -11,7 +9,7 @@ This application is a financial modeling tool designed specifically for S-Corp o
 1.  **S-Corp Deduction Path (SEHI):** The traditional route where the S-Corp pays premiums, reported as W-2 wages, and deducted on the personal return.
 2.  **ACA Subsidies Path (PTC):** An alternative strategy where premiums are paid personally to qualify for the Premium Tax Credit (PTC) under the Affordable Care Act, often optimized via Tax-Loss Harvesting to reduce Modified Adjusted Gross Income (MAGI).
 
-The tool provides real-time comparisons of net after-tax costs, visualizes the "ACA Cliff" impact for 2026, and models total healthcare liability including deductibles and out-of-pocket maximums.
+The tool provides real-time comparisons of net after-tax costs, visualizes the "ACA Cliff" impact for 2027, and models total healthcare liability including deductibles and out-of-pocket maximums.
 
 ## Privacy & Security
 
@@ -23,11 +21,12 @@ The tool provides real-time comparisons of net after-tax costs, visualizes the "
 
 ## Features
 
-*   **Detailed Pay Stub Calculator:** Inputs for S-Corp owner and spouse gross pay, taxes, and deductions.
-*   **MAGI Optimization:** Models the impact of pre-tax deductions (401k, HSA) and Tax-Loss Harvesting on ACA subsidy eligibility.
-*   **ACA Cliff Visualization:** Automatically detects if household income exceeds 400% FPL (for 2026 rules) and removes subsidies accordingly.
+*   **Detailed Pay Stub Calculator:** Inputs for S-Corp owner and spouse gross pay, taxes, and deductions updated for 2027 rules.
+*   **MAGI Optimization:** Models the impact of pre-tax deductions (401k, HSA up to 2027 limits of $4,500 individual / $9,000 family) and Tax-Loss Harvesting on ACA subsidy eligibility.
+*   **2027 ACA Cliff & Policy Modeling:** Features a 2027 subsidy policy toggle between standard Strict 400% FPL Cliff and Enhanced Subsidies (Extension Scenario), with gap-to-cliff calculations.
+*   **2027 Statutory HDHP Presets:** Quick-select presets for 2027 Individual HDHP ($1,750 deductible / $8,700 OOP max) and Family HDHP ($3,500 deductible / $17,400 OOP max).
 *   **Total Cost Modeling:** Compares scenarios based on Low, Medium, and High medical usage years, factoring in plan deductibles and coinsurance.
-*   **AI-Powered Insights:** Uses Google Gemini 2.5 with Search Grounding to provide up-to-date, context-aware financial context.
+*   **AI-Powered Insights:** Uses Google Gemini 3.8 Flash with Search Grounding to provide up-to-date, context-aware financial context grounded in 2027 IRS notices and Form 8962 rules.
 
 ## License
 
